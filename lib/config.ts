@@ -80,7 +80,7 @@ export const PHOTOWALK = {
   otherBrand: 'Jiná značka',
   voucher: 'Voucher 500 Kč na e-shop OPPO při nákupu od 4 000 Kč',
   // Thank-you e-mail after the walk. `code` pre-fills the admin field; what is in the field when sending wins.
-  thanks: { code: 'photowalk', discount: '500 Kč', minOrder: '4 000 Kč', eshopUrl: 'https://www.oppo.com/cz/store/' },
+  thanks: { code: 'PHOTOWALK', discount: '500 Kč', minOrder: '4 000 Kč', eshopUrl: 'https://www.oppo.com/cz/store/' },
   program: [
     { time: '14:00', title: 'Káva a tipy od Martina', text: 'Sraz ve Vista House. Martin na vlastních fotkách ukáže, jak telefonem fotit krajinu, architekturu, detaily i vzdálené motivy přes zoom.' },
     { time: '14:30', title: 'Procházka po Vyšehradě', text: 'Zhruba 2,5 km v klidném tempu. Na každé zastávce se zaměříme na něco jiného.' },
