@@ -2,10 +2,21 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { isAdminEmail, requirePhotowalkAdmin } from '@/lib/auth';
 import { PHOTOWALK } from '@/lib/config';
-import { attendanceReady, listSignups, type Signup } from '@/lib/photowalk';
+import { attendanceReady, listSignups, thanksReady, type Signup } from '@/lib/photowalk';
 import { isMailConfigured, mailSetupSummary } from '@/lib/mail';
 import Seats from '@/components/Seats';
-import { confirmSignup, deleteSignup, resendConfirmation, sendReminder, sendReminders, sendReminderTest, sendTestEmail, setSignupStatus } from './actions';
+import {
+  confirmSignup,
+  deleteSignup,
+  resendConfirmation,
+  sendReminder,
+  sendReminders,
+  sendReminderTest,
+  sendTestEmail,
+  sendThanks,
+  sendThanksTest,
+  setSignupStatus,
+} from './actions';
 
 export const dynamic = 'force-dynamic';
 // Sending the reminder to everyone goes one e-mail at a time over SMTP.
@@ -23,6 +34,10 @@ const MIGRATION = `alter table public.photowalk_signups
   add column if not exists attendance_at    timestamptz,
   add column if not exists reminder_sent_at timestamptz;
 create unique index if not exists photowalk_signups_rsvp_token_idx on public.photowalk_signups (rsvp_token);`;
+
+const MIGRATION_THANKS = `alter table public.photowalk_signups
+  add column if not exists thanks_sent_at timestamptz,
+  add column if not exists discount_code  text;`;
 
 /** The participant's own answer from /photowalk/potvrzeni. */
 function Attendance({ s }: { s: Signup }) {
@@ -62,6 +77,12 @@ function Row({ s, full, attendance }: { s: Signup; full: boolean; attendance: bo
             potvrzeno {t(s.confirmed_at)}
             <br />
             {s.confirm_email_sent_at ? <span className="muted">e-mail {t(s.confirm_email_sent_at)}</span> : <strong>e-mail neodešel</strong>}
+            {s.thanks_sent_at && (
+              <>
+                <br />
+                <span className="muted">poděkování {t(s.thanks_sent_at)}{s.discount_code ? `, kód ${s.discount_code}` : ''}</span>
+              </>
+            )}
           </span>
         )}
         {s.status === 'pending' && <span className="small muted">čeká</span>}
@@ -158,6 +179,11 @@ export default async function PhotoWalkAdmin({ searchParams }: { searchParams: S
   const notReminded = noAnswer.filter((s) => !s.reminder_sent_at).length;
   const gaveUp = declined.filter((s) => s.attendance === 'no').length;
   const notifyTeam = Boolean((process.env.PHOTOWALK_NOTIFY_EMAILS || '').trim());
+  const walkStarted = new Date() >= new Date(PHOTOWALK.start);
+  const thanks = walkStarted && (await thanksReady());
+  const thanked = confirmed.filter((s) => s.thanks_sent_at).length;
+  const toThank = confirmed.length - thanked;
+  const lastCodes = [...new Set(confirmed.map((s) => s.discount_code).filter(Boolean))];
 
   return (
     <section className="section">
@@ -205,6 +231,45 @@ export default async function PhotoWalkAdmin({ searchParams }: { searchParams: S
             </p>
           )}
         </div>
+
+        {walkStarted &&
+          (thanks ? (
+            <div className="card">
+              <h2 style={{ fontSize: 22, marginBottom: 8 }}>Poděkování po akci</h2>
+              <p className="small muted" style={{ maxWidth: '62em', margin: 0 }}>
+                Všem potvrzeným odejde e-mail „Díky za sobotu na Vyšehradě“ se slevovým kódem {PHOTOWALK.thanks.discount} na e-shop OPPO
+                při nákupu od {PHOTOWALK.thanks.minOrder}. Kdo nakonec nedorazil, toho před odesláním přesuň tlačítkem Uvolnit místo
+                nebo Odmítnout a poděkování nedostane. Každému odejde jen jednou, druhé kliknutí pošle e-mail jen těm, komu ještě
+                nepřišel.
+              </p>
+              <div className="stats" style={{ marginTop: 18 }}>
+                <div className="stat"><div className="stat-num">{thanked} / {confirmed.length}</div><div className="muted">poděkování odesláno</div></div>
+              </div>
+              <form className="pw-thanks-form">
+                <label>
+                  Slevový kód
+                  <textarea name="codes" rows={lastCodes.length > 1 ? 6 : 2} defaultValue={lastCodes.length === 1 ? lastCodes[0]! : ''} placeholder="PHOTOWALK500" />
+                  <span className="small muted">Jeden kód pro všechny, nebo každý kód na samostatný řádek, pokud má mít každý svůj.</span>
+                </label>
+                <label>
+                  Platí do <span className="muted">(nepovinné)</span>
+                  <input name="valid" placeholder="31. 12. 2026" />
+                </label>
+                <div className="row-actions">
+                  <button className="btn btn-black btn-small" type="submit" formAction={sendThanks} disabled={toThank === 0}>
+                    Poslat poděkování{toThank ? ` (${toThank})` : ''}
+                  </button>
+                  <button className="btn btn-ghost btn-small" type="submit" formAction={sendThanksTest}>Ukázku na {user.email}</button>
+                </div>
+              </form>
+            </div>
+          ) : (
+            <div className="alert alert-err">
+              Pro poděkování se slevovým kódem je potřeba jednou spustit v Supabase (SQL Editor → New query) tenhle kód. Je i v repu
+              jako supabase/photowalk-podekovani.sql.
+              <pre className="pw-sql">{MIGRATION_THANKS}</pre>
+            </div>
+          ))}
 
         {ready ? (
           <div className="card">

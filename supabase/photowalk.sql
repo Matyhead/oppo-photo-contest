@@ -34,3 +34,8 @@ alter table public.photowalk_signups
   add column if not exists reminder_sent_at timestamptz;
 
 create unique index if not exists photowalk_signups_rsvp_token_idx on public.photowalk_signups (rsvp_token);
+
+-- Thank-you e-mail with a discount code (also in photowalk-podekovani.sql).
+alter table public.photowalk_signups
+  add column if not exists thanks_sent_at timestamptz, -- when the thank-you e-mail went out
+  add column if not exists discount_code  text;        -- the code it carried

@@ -22,6 +22,9 @@ export type Signup = {
   attendance?: Attendance | null;
   attendance_at?: string | null;
   reminder_sent_at?: string | null;
+  // From supabase/photowalk-podekovani.sql.
+  thanks_sent_at?: string | null;
+  discount_code?: string | null;
 };
 
 /** The participant's own answer from /photowalk/potvrzeni: yes = will come, no = gave the place up. */
@@ -105,6 +108,13 @@ export async function findSignupByToken(token: string): Promise<Signup | null> {
 export async function attendanceReady() {
   if (!isSupabaseConfigured()) return false;
   const { error } = await createAdminClient().from('photowalk_signups').select('rsvp_token').limit(1);
+  return !error;
+}
+
+/** True once supabase/photowalk-podekovani.sql has run (the thank-you columns exist). */
+export async function thanksReady() {
+  if (!isSupabaseConfigured()) return false;
+  const { error } = await createAdminClient().from('photowalk_signups').select('thanks_sent_at').limit(1);
   return !error;
 }
 

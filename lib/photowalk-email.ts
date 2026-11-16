@@ -1,5 +1,5 @@
 import 'server-only';
-import { ORGANIZER, PHOTOWALK, SITE_URL } from './config';
+import { CONTEST, ORGANIZER, PHOTOWALK, SITE_URL } from './config';
 import { buildIcs, eventDayLabel, eventTimeLabel, googleCalendarUrl, phoneLabel, PHOTOWALK_URL, rsvpUrl, type SeatCounts, type Signup } from './photowalk';
 import type { Mail } from './mail';
 
@@ -24,7 +24,7 @@ function layout(opts: { preheader: string; title: string; body: string; hero?: b
 <title>${esc(opts.title)}</title>
 <style>
   body{margin:0;padding:0;} table,td{border-collapse:collapse;} img{border:0;display:block;} a{text-decoration:none;}
-  @media screen and (max-width:620px){ .px{padding-left:24px !important;padding-right:24px !important;} .h1{font-size:32px !important;line-height:37px !important;} .stack{display:block !important;width:auto !important;} }
+  @media screen and (max-width:620px){ .px{padding-left:24px !important;padding-right:24px !important;} .h1{font-size:32px !important;line-height:37px !important;} .stack{display:block !important;width:auto !important;} .vc1{padding:24px 24px 0 24px !important;} .vc2{padding:8px 24px 24px 24px !important;} }
 </style></head>
 <body style="margin:0;padding:0;background-color:#E7E3DC;">
 <div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${esc(opts.preheader)}&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;</div>
@@ -235,6 +235,55 @@ export function reminderEmail(token: string): Mail {
     to: '',
     subject: 'Sobota s Martinem Rakem: dorazíte?',
     html: layout({ preheader: 'Potvrďte prosím jedním klepnutím, že dorazíte, nebo uvolněte místo pro náhradníka.', title: 'Dorazíte na photo walk?', body }),
+    text,
+  };
+}
+
+/** After the walk: thanks, and the discount code for the OPPO e-shop. */
+export function thanksEmail(code: string, validUntil?: string): Mail {
+  const { discount, minOrder, eshopUrl } = PHOTOWALK.thanks;
+  const entriesEnd = new Intl.DateTimeFormat('cs-CZ', { timeZone: 'Europe/Prague', day: 'numeric', month: 'long' }).format(new Date(CONTEST.entriesEnd));
+  const contestOpen = new Date() < new Date(CONTEST.entriesEnd);
+  const terms = `při nákupu od ${minOrder}${validUntil ? `, platí do ${validUntil}` : ''}`;
+  const voucher = `<table ${T} width="100%" style="margin-top:26px;background-color:#0E0E0D;border-radius:14px;"><tr>
+      <td class="stack vc1" valign="middle" style="padding:26px 0 26px 28px;width:170px;${F}font-size:44px;line-height:46px;font-weight:700;letter-spacing:-1px;color:#F07C2E;white-space:nowrap;">${discount}</td>
+      <td class="stack vc2" valign="middle" style="padding:24px 28px 24px 20px;${F}">
+        <div style="font-size:13px;line-height:18px;color:#9A958C;">Slevový kód na e-shop OPPO</div>
+        <div style="padding-top:6px;font-family:'SFMono-Regular',Menlo,Consolas,monospace;font-size:24px;line-height:30px;font-weight:700;letter-spacing:2px;color:#FFFFFF;">${esc(code)}</div>
+        <div style="padding-top:6px;font-size:14px;line-height:20px;color:#CFCAC2;">${esc(terms)}</div>
+      </td>
+    </tr></table>`;
+  const body = `
+    ${h1('Díky, byli jste skvělí')}
+    ${p('Dobrý den,', 22)}
+    ${p('ještě jednou díky, že jste v sobotu dorazili na photo walk s Martinem Rakem. Byli jste úžasní a moc nás těšilo, s jakou chutí jste fotili a kolik otázek padlo.')}
+    ${p(`Jako poděkování od nás máte slevu ${discount} na nákup v e-shopu OPPO.`)}
+    ${voucher}
+    <div style="padding-top:22px;">${button(eshopUrl, 'Nakupovat na e-shopu OPPO', false)}</div>
+    ${muted('Kód stačí zadat při objednávce.', 4)}
+    ${contestOpen ? p(`A ještě jedna věc: fotky z Vyšehradu můžete do ${entriesEnd} přihlásit do soutěže ${CONTEST.name}. Stačí je dát na Instagram s hashtagem ${CONTEST.hashtag} a hrát můžete až o OPPO Find X10.`, 28) : ''}
+    ${contestOpen ? `<div style="padding-top:16px;">${button(SITE_URL, 'Jak se zapojit do soutěže')}</div>` : ''}
+    ${p('Ať vám to fotí,<br><strong>tým OPPO Česko</strong>', 24)}`;
+  const text = [
+    'Díky, byli jste skvělí',
+    '',
+    'Dobrý den,',
+    'ještě jednou díky, že jste v sobotu dorazili na photo walk s Martinem Rakem. Byli jste úžasní a moc nás těšilo, s jakou chutí jste fotili a kolik otázek padlo.',
+    '',
+    `Jako poděkování od nás máte slevu ${discount} na nákup v e-shopu OPPO.`,
+    `Slevový kód: ${code} (${terms})`,
+    `E-shop: ${eshopUrl}`,
+    ...(contestOpen
+      ? ['', `Fotky z Vyšehradu můžete do ${entriesEnd} přihlásit do soutěže ${CONTEST.name} s hashtagem ${CONTEST.hashtag}: ${SITE_URL}`]
+      : []),
+    '',
+    'Ať vám to fotí,',
+    'tým OPPO Česko',
+  ].join('\n');
+  return {
+    to: '',
+    subject: 'Díky za sobotu na Vyšehradě',
+    html: layout({ preheader: `Byli jste skvělí. Jako poděkování máte slevu ${discount} na e-shop OPPO.`, title: 'Díky za photo walk', body }),
     text,
   };
 }

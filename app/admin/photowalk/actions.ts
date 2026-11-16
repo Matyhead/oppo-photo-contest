@@ -5,8 +5,8 @@ import { redirect } from 'next/navigation';
 import { requirePhotowalkAdmin } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { PHOTOWALK } from '@/lib/config';
-import { attendanceReady, getSeatCounts, listSignups, RSVP_SAMPLE, type Signup } from '@/lib/photowalk';
-import { confirmedEmail, reminderEmail } from '@/lib/photowalk-email';
+import { attendanceReady, getSeatCounts, listSignups, RSVP_SAMPLE, thanksReady, type Signup } from '@/lib/photowalk';
+import { confirmedEmail, reminderEmail, thanksEmail } from '@/lib/photowalk-email';
 import { sendMail } from '@/lib/mail';
 
 const PATH = '/admin/photowalk';
@@ -152,4 +152,62 @@ export async function sendReminderTest() {
   const res = await sendMail({ ...mail, subject: `[TEST] ${mail.subject}`, to: user.email });
   if (!res.ok) back({ err: `Testovací připomínku se nepodařilo odeslat: ${res.error}` });
   back({ ok: `Ukázka připomínky odešla na ${user.email}. Tlačítka v ní otevřou ukázkovou stránku, nic se neuloží.` });
+}
+
+// ---- Thank-you e-mail after the walk ---------------------------------------
+
+/** One code per line; a single line means everyone gets the same code. */
+function parseCodes(raw: FormDataEntryValue | null) {
+  const codes = String(raw || '')
+    .split(/[\n,;]+/)
+    .map((c) => c.replace(/\s+/g, ''))
+    .filter(Boolean);
+  return [...new Set(codes)];
+}
+
+const validUntilOf = (formData: FormData) => String(formData.get('valid') || '').trim().slice(0, 40) || undefined;
+
+/** Everyone still confirmed after the walk gets the thank-you once; a second click only reaches those it has not reached yet. */
+export async function sendThanks(formData: FormData) {
+  await requirePhotowalkAdmin();
+  if (!(await thanksReady())) back({ err: 'Nejdřív je potřeba v Supabase spustit supabase/photowalk-podekovani.sql.' });
+  const codes = parseCodes(formData.get('codes'));
+  if (codes.length === 0) back({ err: 'Napiš slevový kód, který má v e-mailu být.' });
+  if (codes.some((c) => c.length > 64)) back({ err: 'Některý kód je moc dlouhý. Každý kód dej na samostatný řádek.' });
+  const validUntil = validUntilOf(formData);
+
+  const all = await listSignups();
+  const targets = all.filter((s) => s.status === 'confirmed' && !s.thanks_sent_at);
+  if (targets.length === 0) back({ err: 'Poděkování už dostali všichni potvrzení.' });
+
+  // With several codes everyone gets their own one, skipping codes that already went out.
+  const used = new Set(all.map((s) => s.discount_code).filter(Boolean));
+  const pool = codes.length === 1 ? codes : codes.filter((c) => !used.has(c));
+  if (codes.length > 1 && pool.length < targets.length) {
+    back({ err: `Kódů je málo: ${pool.length} nepoužitých na ${targets.length} lidí. Doplň je, nebo nech jeden kód pro všechny.` });
+  }
+
+  const supabase = createAdminClient();
+  let sent = 0;
+  const failed: string[] = [];
+  for (const [i, s] of targets.entries()) {
+    const code = codes.length === 1 ? codes[0] : pool[i];
+    const res = await sendMail({ ...thanksEmail(code, validUntil), to: s.email });
+    if (res.ok) {
+      sent += 1;
+      await supabase.from('photowalk_signups').update({ thanks_sent_at: new Date().toISOString(), discount_code: code }).eq('id', s.id);
+    } else failed.push(`${s.name} (${res.error})`);
+  }
+  refresh();
+  if (failed.length) back({ err: `Poděkování odešlo ${people(sent)}. Nepodařilo se: ${failed.join(', ')}. Zkus to znovu, odejde jen jim.` });
+  back({ ok: `Poděkování se slevovým kódem odešlo ${people(sent)}.` });
+}
+
+export async function sendThanksTest(formData: FormData) {
+  const user = await requirePhotowalkAdmin();
+  const code = parseCodes(formData.get('codes'))[0] || 'UKAZKA500';
+  const mail = thanksEmail(code, validUntilOf(formData));
+  const res = await sendMail({ ...mail, subject: `[TEST] ${mail.subject}`, to: user.email });
+  if (!res.ok) back({ err: `Ukázku poděkování se nepodařilo odeslat: ${res.error}` });
+  back({ ok: `Ukázka poděkování s kódem ${code} odešla na ${user.email}.` });
 }

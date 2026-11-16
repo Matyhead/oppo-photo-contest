@@ -79,6 +79,8 @@ export const PHOTOWALK = {
   brands: ['OPPO', 'OnePlus', 'Jiná značka'],
   otherBrand: 'Jiná značka',
   voucher: 'Voucher 500 Kč na e-shop OPPO při nákupu od 4 000 Kč',
+  // Thank-you e-mail after the walk: the discount code itself is typed in the admin when sending.
+  thanks: { discount: '500 Kč', minOrder: '4 000 Kč', eshopUrl: 'https://www.oppo.com/cz/store/' },
   program: [
     { time: '14:00', title: 'Káva a tipy od Martina', text: 'Sraz ve Vista House. Martin na vlastních fotkách ukáže, jak telefonem fotit krajinu, architekturu, detaily i vzdálené motivy přes zoom.' },
     { time: '14:30', title: 'Procházka po Vyšehradě', text: 'Zhruba 2,5 km v klidném tempu. Na každé zastávce se zaměříme na něco jiného.' },
