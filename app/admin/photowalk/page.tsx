@@ -248,7 +248,7 @@ export default async function PhotoWalkAdmin({ searchParams }: { searchParams: S
               <form className="pw-thanks-form">
                 <label>
                   Slevový kód
-                  <textarea name="codes" rows={lastCodes.length > 1 ? 6 : 2} defaultValue={lastCodes.length === 1 ? lastCodes[0]! : ''} placeholder="PHOTOWALK500" />
+                  <textarea name="codes" rows={lastCodes.length > 1 ? 6 : 2} defaultValue={lastCodes.length > 1 ? lastCodes.join('\n') : lastCodes[0] ?? PHOTOWALK.thanks.code} placeholder={PHOTOWALK.thanks.code} />
                   <span className="small muted">Jeden kód pro všechny, nebo každý kód na samostatný řádek, pokud má mít každý svůj.</span>
                 </label>
                 <label>

@@ -205,7 +205,7 @@ export async function sendThanks(formData: FormData) {
 
 export async function sendThanksTest(formData: FormData) {
   const user = await requirePhotowalkAdmin();
-  const code = parseCodes(formData.get('codes'))[0] || 'UKAZKA500';
+  const code = parseCodes(formData.get('codes'))[0] || PHOTOWALK.thanks.code;
   const mail = thanksEmail(code, validUntilOf(formData));
   const res = await sendMail({ ...mail, subject: `[TEST] ${mail.subject}`, to: user.email });
   if (!res.ok) back({ err: `Ukázku poděkování se nepodařilo odeslat: ${res.error}` });
