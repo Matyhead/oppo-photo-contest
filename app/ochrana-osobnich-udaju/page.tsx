@@ -151,12 +151,26 @@ export default function PrivacyPage() {
           na {mail}.
         </p>
 
-        <h2>10. Změny</h2>
+        <h2 id="dotaznik">10. Dotazník o širokých telefonech</h2>
+        <p>
+          Dotazník na stránce <Link href="/dotaznik">/dotaznik</Link> je anonymní. Ukládáme odpovědi, odkud jsi na dotazník přišel
+          (označení v odkazu), zda vyplňuješ z mobilu nebo počítače, jak dlouho vyplnění trvalo a otisk IP adresy (stejně nevratný jako
+          u hlasování), abychom zabránili hromadnému odesílání. Odpovědi vyhodnocujeme souhrnně, abychom pochopili, jaký telefon lidé
+          chtějí. Základem je náš oprávněný zájem (čl. 6 odst. 1 písm. f) GDPR).
+        </p>
+        <p>
+          E-mail je nepovinný a ukládáme ho jen se tvým souhlasem (čl. 6 odst. 1 písm. a) GDPR). Napíšeme ti na něj jen kvůli tomuto
+          průzkumu: pozvánku na osobní setkání, pokud jsi o ni požádal(a), nebo nabídku vyzkoušení. Souhlas můžeš kdykoli odvolat na{' '}
+          {mail}. E-mail smažeme po skončení průzkumu, odpovědi bez e-mailu si můžeme ponechat pro další vyhodnocení. Lidem mladším
+          18 let kontaktní údaje vůbec nenabízíme.
+        </p>
+
+        <h2>11. Změny</h2>
         <p>
           Tyto zásady můžeme upravit, například když se změní způsob provozu soutěže. Aktuální znění najdeš vždy na této stránce.
           Pravidla soutěže jsou na stránce <Link href="/pravidla">Pravidla soutěže</Link>.
         </p>
-        <p className="muted small">Poslední aktualizace: 3. listopadu 2026</p>
+        <p className="muted small">Poslední aktualizace: 23. listopadu 2026</p>
       </div>
     </section>
   );

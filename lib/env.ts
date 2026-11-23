@@ -28,3 +28,8 @@ export function adminEmails(): string[] {
 export function photowalkAdminEmails(): string[] {
   return emailList(process.env.PHOTOWALK_ADMIN_EMAILS);
 }
+
+/** Survey only: /admin/dotaznik and its CSV export. Full admins have access too. */
+export function surveyAdminEmails(): string[] {
+  return emailList(process.env.SURVEY_ADMIN_EMAILS);
+}

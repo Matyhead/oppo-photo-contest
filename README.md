@@ -21,6 +21,8 @@ Web fotosoutěže pro Instagram. Soutěžící dají fotku na Instagram s **#OPP
 | `/admin/hlasy` | Kontrola hlasů: hlasy podle IP, skoky za hodinu, rušení hlasů |
 | `/photowalk` | Skrytá stránka photo walku s Martinem Rakem: přihláška, volná místa, program, mapa (bez odkazu v menu, mimo vyhledávače) |
 | `/admin/photowalk` | Přihlášky na photo walk: potvrzení místa, uvolnění, odmítnutí, export CSV |
+| `/dotaznik` | Dotazník o širokých telefonech: jen klikání, jedna otázka na obrazovku, na konci volitelná pozvánka na osobní setkání (bez hlavičky a patičky soutěže) |
+| `/admin/dotaznik` | Odpovědi z dotazníku: grafy, filtry, zdroje odkazů, kandidáti na setkání, tabulka, export CSV |
 
 ## Spuštění krok za krokem
 
@@ -53,6 +55,7 @@ Zkopíruj `.env.example` do `.env.local` (lokálně) nebo je vlož do Vercelu (S
 | `NEXT_PUBLIC_SITE_URL` | adresa webu bez lomítka na konci; na Vercelu nepovinné, bez ní se použije produkční doména projektu |
 | `NEXT_PUBLIC_IG_HANDLE` | instagramový účet OPPO CZ bez @ |
 | `ADMIN_EMAILS` | e-maily (oddělené čárkou), které smí do `/admin` |
+| `SURVEY_ADMIN_EMAILS` | volitelné: e-maily, které smí jen do `/admin/dotaznik` (kolegové na vyhodnocení dotazníku) |
 | `VOTE_SALT` | náhodný dlouhý řetězec pro anonymizaci IP adres |
 | `VOTES_PER_IP_PER_HOUR` | max. hlasů z jedné IP za hodinu (výchozí 40; sdílené Wi-Fi a mobilní sítě mají jednu IP pro víc lidí) |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | volitelné: captcha Cloudflare Turnstile při přihlášení |
@@ -121,3 +124,18 @@ Milník počítá počet různých instagramových účtů se schválenou fotkou
 ## Písmo
 
 `public/fonts/OPPOSans.woff2` je OPPO Sans 4.0 zmenšené na latinku. Pokud máte oficiální soubor písma od OPPO, nahraďte ho (stejný název souboru).
+
+## Dotazník o širokých telefonech (/dotaznik)
+
+Dotazník pro zákazníky, fanoušky, média a influencery. Jen klikání, nejvýš 5 minut, 25 otázek v pěti částech: tvar (klasický A, široký B, široký skládací C), cena, paměť a RAM, nákup a pár otázek o respondentovi. Na konci jsou nepovinné volné odpovědi a otázka, jestli chce respondent pozvat na osobní setkání. Kdo řekne ano, musí vyplnit e-mail a dát souhlas. Lidem do 18 let se kontakt nenabízí.
+
+- Otázky, možnosti a krátké názvy sloupců jsou na jednom místě: `lib/survey.ts`. Hodnoty (`value`) se ukládají do databáze, popisky (`label`) jde měnit kdykoli.
+- **Zdroj odkazu:** každý influencer nebo médium dostane vlastní odkaz, třeba `/dotaznik?src=petr` nebo `?utm_source=newsletter`. V adminu je přehled podle zdrojů a filtr.
+- Rozepsaný dotazník si prohlížeč pamatuje, takže se po zavření dá dokončit. Po odeslání ukáže „váš příští telefon“ a tlačítko na sdílení.
+- Ochrana: skryté pole proti robotům a nejvýš 30 odpovědí z jedné IP za hodinu.
+
+Zprovoznění:
+
+1. V Supabase v **SQL Editoru** spusť `supabase/dotaznik.sql` (vytvoří tabulku `survey_responses`).
+2. Volitelně přidej do Vercelu `SURVEY_ADMIN_EMAILS` pro kolegy, kteří mají vidět jen odpovědi z dotazníku.
+3. Otevři `/admin/dotaznik`. Export do CSV otevřeš v Google Sheets (Soubor, Importovat) nebo v Excelu.

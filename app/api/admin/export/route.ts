@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { getUser, isAdminEmail, isPhotowalkAdminEmail } from '@/lib/auth';
+import { getUser, isAdminEmail, isPhotowalkAdminEmail, isSurveyAdminEmail } from '@/lib/auth';
+import { OPEN_QUESTIONS, QUESTIONS, formatAnswer, labelOf } from '@/lib/survey';
+import { listResponses, sourceLabel } from '@/lib/survey-data';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { PHOTOWALK } from '@/lib/config';
 
@@ -12,13 +14,43 @@ function csv(rows: (string | number | boolean | null | undefined)[][]) {
 export async function GET(request: NextRequest) {
   const user = await getUser();
   const typ = request.nextUrl.searchParams.get('typ');
-  const type = typ === 'hlasy' ? 'hlasy' : typ === 'photowalk' ? 'photowalk' : 'fotky';
-  const allowed = type === 'photowalk' ? isPhotowalkAdminEmail(user?.email) : isAdminEmail(user?.email);
+  const type = typ === 'hlasy' ? 'hlasy' : typ === 'photowalk' ? 'photowalk' : typ === 'dotaznik' ? 'dotaznik' : 'fotky';
+  const allowed =
+    type === 'photowalk' ? isPhotowalkAdminEmail(user?.email) : type === 'dotaznik' ? isSurveyAdminEmail(user?.email) : isAdminEmail(user?.email);
   if (!user || !allowed) return new NextResponse('Forbidden', { status: 403 });
   const supabase = createAdminClient();
   let body: string;
 
-  if (type === 'photowalk') {
+  if (type === 'dotaznik') {
+    // One column per question; matrix questions get one column per row. Values are the labels people saw.
+    const cols: { head: string; get: (a: Record<string, unknown>) => string }[] = [];
+    for (const q of QUESTIONS) {
+      if (q.kind === 'matrix') {
+        for (const r of q.rows) {
+          cols.push({
+            head: `${q.short}: ${r.label}`,
+            get: (a) => {
+              const v = a[q.id] as Record<string, string> | undefined;
+              return v?.[r.value] ? labelOf(q, v[r.value]) : '';
+            },
+          });
+        }
+      } else {
+        cols.push({ head: q.short, get: (a) => formatAnswer(q, a[q.id] as never) });
+      }
+    }
+    const responses = ((await listResponses()) ?? []).slice().reverse();
+    body = csv([
+      ['odeslano', 'zdroj', 'zarizeni', 'doba_s', ...cols.map((c) => c.head), ...OPEN_QUESTIONS.map((o) => o.label), 'chce_na_setkani', 'email', 'souhlas'],
+      ...responses.map((r) => [
+        r.created_at, sourceLabel(r.src), r.device ?? '', r.duration_s ?? '',
+        ...cols.map((c) => c.get(r.answers as Record<string, unknown>)),
+        ...OPEN_QUESTIONS.map((o) => r.open_answers?.[o.id] ?? ''),
+        r.wants_meeting === true ? 'ano' : r.wants_meeting === false ? 'ne' : '',
+        r.email ?? '', r.contact_consent ? 'ano' : '',
+      ]),
+    ]);
+  } else if (type === 'photowalk') {
     const { data } = await supabase
       .from('photowalk_signups')
       .select('*')
@@ -60,7 +92,9 @@ export async function GET(request: NextRequest) {
   return new NextResponse('﻿' + body, {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="${type === 'photowalk' ? 'photowalk-prihlasky' : `lovci-svetla-${type}`}.csv"`,
+      'Content-Disposition': `attachment; filename="${
+        type === 'photowalk' ? 'photowalk-prihlasky' : type === 'dotaznik' ? 'dotaznik-siroke-telefony' : `lovci-svetla-${type}`
+      }.csv"`,
     },
   });
 }

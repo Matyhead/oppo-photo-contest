@@ -544,3 +544,6 @@ table.prizes .now { display: inline-block; margin-left: 10px; font-size: 14px; f
 .pw-check li::before { content: ''; flex: none; width: 16px; height: 16px; border: 2px solid var(--pw-orange); }
 
 .pw-admin-seats .seats { margin-top: 4px; }
+
+/* Survey (/dotaznik) paints the whole page, overscroll included. Its own styles: app/dotaznik/survey.module.css */
+html:has([data-survey]), body:has([data-survey]) { background: #123b24; }
