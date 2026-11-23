@@ -1,0 +1,344 @@
+/* /dotaznik: one question per screen, a phone in the margin that widens, fills and takes your shape. */
+
+.root {
+  --field: #123b24;
+  --mint: #a8f0c0;
+  --mint-hi: #cff8dc;
+  --text: #f2fbf5;
+  --muted: #a9c9b4;
+  --line: rgba(214, 247, 225, 0.24);
+  --raised: rgba(255, 255, 255, 0.055);
+  --raised-hi: rgba(255, 255, 255, 0.1);
+  --ink: #0f2e1c;
+  --err: #ffb3a1;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  color-scheme: dark;
+  min-height: 100vh;
+  min-height: 100dvh;
+  color: var(--text);
+  background: radial-gradient(90% 60% at 0% 0%, rgba(168, 240, 192, 0.15), transparent 62%), var(--field);
+  overflow-x: hidden;
+}
+
+.shell {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 20px 20px 64px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: 'top rail' 'stage stage';
+  align-items: start;
+  column-gap: 16px;
+}
+.isIntro .shell,
+.isDone .shell {
+  grid-template-columns: 1fr;
+  grid-template-areas: 'top' 'rail' 'stage';
+}
+
+/* ---------- Top bar ---------- */
+.top {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 40px;
+}
+.logo { height: 18px; width: auto; display: block; }
+.logoWord { font-weight: 700; letter-spacing: 0.2em; }
+.progress { font-size: 15px; font-variant-numeric: tabular-nums; color: var(--text); }
+.progressOf { color: var(--muted); }
+
+/* ---------- The device ---------- */
+.rail {
+  grid-area: rail;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 40px;
+}
+.isIntro .rail,
+.isDone .rail { justify-content: flex-start; margin: 34px 0 30px; }
+
+.device {
+  --h: 34px;
+  position: relative;
+  flex-shrink: 0;
+  height: var(--h);
+  width: calc(var(--h) * var(--ar));
+  border: 2px solid var(--mint);
+  border-radius: calc(var(--h) * 0.13);
+  overflow: hidden;
+  transition: width 1s var(--ease), height 0.7s var(--ease), border-radius 0.7s var(--ease), box-shadow 1.2s ease;
+}
+.isIntro .device { --h: 156px; box-shadow: 0 0 90px rgba(168, 240, 192, 0.28); }
+.isDone .device { --h: 132px; box-shadow: 0 0 70px rgba(168, 240, 192, 0.22); }
+.deviceFill {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: var(--fill, 0%);
+  background: var(--mint);
+  transition: height 0.7s var(--ease);
+}
+.deviceCam {
+  position: absolute; left: 50%; top: calc(var(--h) * 0.055);
+  width: max(3px, calc(var(--h) * 0.05)); height: max(3px, calc(var(--h) * 0.05));
+  border-radius: 50%; background: var(--mint); transform: translateX(-50%);
+  transition: left 0.6s var(--ease);
+}
+.deviceOpen .deviceCam { left: 75%; }
+.deviceFold {
+  position: absolute; top: 8%; bottom: 8%; left: 50%;
+  border-left: 2px dashed var(--ink);
+  opacity: 0; transition: opacity 0.4s ease 0.5s;
+}
+.deviceOpen .deviceFold { opacity: 0.5; }
+.deviceLabel {
+  position: absolute; left: 0; right: 0; bottom: 10%;
+  text-align: center; font-weight: 700; color: var(--ink);
+  font-size: max(12px, calc(var(--h) * 0.1));
+  letter-spacing: -0.01em;
+}
+/* Open foldable: the label sits on the right half, clear of the fold. */
+.deviceOpen .deviceLabel { left: 50%; }
+/* Too small to read in the compact phone at the top of the screen. */
+.isAsking .deviceLabel { display: none; }
+
+/* ---------- Stage and screens ---------- */
+.stage { grid-area: stage; min-width: 0; }
+.isAsking .stage { margin-top: 30px; }
+.screen { max-width: 680px; animation: fromRight 0.45s var(--ease) both; }
+.fromLeft { animation-name: fromLeft; }
+@keyframes fromRight { from { opacity: 0; transform: translateX(36px); } to { opacity: 1; transform: none; } }
+@keyframes fromLeft { from { opacity: 0; transform: translateX(-36px); } to { opacity: 1; transform: none; } }
+
+.h1 {
+  font-size: clamp(46px, 12vw, 92px);
+  line-height: 0.97;
+  letter-spacing: -0.04em;
+  max-width: 10.5ch;
+  margin: 0 0 24px;
+}
+.h2 {
+  font-size: clamp(28px, 6.6vw, 46px);
+  line-height: 1.07;
+  letter-spacing: -0.028em;
+  margin: 0 0 26px;
+  text-wrap: balance;
+}
+.lead { font-size: 19px; line-height: 1.5; max-width: 34em; margin: 0 0 28px; color: var(--text); }
+.help { margin: -14px 0 18px; font-size: 15px; color: var(--muted); }
+.note { font-size: 14px; color: var(--muted); }
+.error { margin: 18px 0 0; color: var(--err); font-size: 15px; }
+
+/* ---------- Buttons ---------- */
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-top: 30px; }
+.primary,
+.ghost {
+  font: inherit; font-weight: 700; font-size: 17px;
+  border-radius: 999px; padding: 15px 32px; cursor: pointer;
+  border: 1.5px solid transparent; text-decoration: none; display: inline-flex; align-items: center;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s;
+}
+.primary { background: var(--mint); color: var(--ink); }
+.primary:disabled { opacity: 0.45; cursor: not-allowed; }
+.ghost { background: transparent; color: var(--text); border-color: var(--line); }
+.isIntro .primary { padding: 18px 44px; font-size: 18px; }
+
+/* ---------- Answers: shared ---------- */
+.row,
+.tile,
+.storageTile,
+.shapeCard,
+.matrixCell,
+.scaleChip {
+  font: inherit; color: var(--text); cursor: pointer; text-align: left;
+  background: var(--raised);
+  border: 1.5px solid var(--line);
+  transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.18s var(--ease);
+}
+.row:disabled { opacity: 0.4; cursor: not-allowed; }
+.on,
+.row.on,
+.tile.on,
+.storageTile.on,
+.shapeCard.on,
+.matrixCell.on,
+.scaleChip.on { background: var(--mint); border-color: var(--mint); color: var(--ink); }
+.row:active, .tile:active, .storageTile:active, .shapeCard:active, .matrixCell:active, .scaleChip:active { transform: scale(0.985); }
+
+.primary:focus-visible, .ghost:focus-visible, .row:focus-visible, .tile:focus-visible, .storageTile:focus-visible,
+.shapeCard:focus-visible, .matrixCell:focus-visible, .scaleChip:focus-visible, .textChoice:focus-visible,
+.input:focus-visible, .textarea:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 3px;
+}
+
+@media (hover: hover) {
+  .primary:not(:disabled):hover { background: var(--mint-hi); }
+  .ghost:hover { border-color: var(--mint); }
+  .row:not(.on):not(:disabled):hover, .tile:not(.on):hover, .storageTile:not(.on):hover,
+  .shapeCard:not(.on):hover, .matrixCell:not(.on):hover, .scaleChip:not(.on):hover {
+    border-color: var(--mint); background: var(--raised-hi);
+  }
+}
+
+/* List rows */
+.list { display: grid; gap: 10px; }
+.row {
+  display: flex; align-items: center; gap: 14px;
+  min-height: 60px; padding: 14px 18px; border-radius: 18px; font-size: 17px; line-height: 1.3;
+}
+.rowExclusive { margin-top: 6px; }
+.rowLabel { flex: 1; }
+.check {
+  flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+  border: 1.5px solid var(--line); display: grid; place-items: center; color: transparent;
+}
+.checkSquare { border-radius: 7px; }
+.checkOn { background: var(--ink); border-color: var(--ink); color: var(--mint); }
+
+/* Tiles */
+.tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.tile { min-height: 64px; padding: 16px; border-radius: 18px; font-size: 17px; font-weight: 600; text-align: center; }
+
+/* Shapes */
+.shapeIcon { display: block; color: inherit; }
+.shapeCards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.shapeCard {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px;
+  padding: 22px 8px 16px; border-radius: 20px; text-align: center;
+}
+.shapeArt { height: 72px; display: flex; align-items: center; color: var(--mint); }
+.shapeCard.on .shapeArt { color: var(--ink); }
+.shapeName { font-weight: 600; font-size: 16px; line-height: 1.2; }
+.shapeLetter { position: absolute; top: 10px; left: 12px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.shapeCard.on .shapeLetter { color: var(--ink); }
+.textChoice {
+  margin-top: 14px; font: inherit; font-size: 16px; color: var(--muted); background: none; border: 0;
+  padding: 10px 4px; cursor: pointer; text-decoration: underline; text-underline-offset: 4px;
+}
+.textChoiceOn { color: var(--mint); font-weight: 700; }
+
+.shapeIntro { display: grid; gap: 12px; margin-bottom: 4px; }
+.shapeIntroItem {
+  display: grid; grid-template-columns: 96px 1fr; grid-template-rows: auto auto; column-gap: 16px; align-items: center;
+  padding: 16px 18px; border: 1.5px solid var(--line); border-radius: 20px; background: var(--raised);
+}
+.shapeIntroArt { grid-row: 1 / 3; display: flex; justify-content: center; color: var(--mint); }
+.shapeIntroName { font-weight: 700; font-size: 19px; align-self: end; }
+.shapeIntroName b { color: var(--mint); margin-right: 6px; }
+.shapeIntroText { color: var(--muted); font-size: 15px; align-self: start; }
+
+/* Storage: a phone outline filled to its capacity */
+.storageGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.storageTile {
+  display: flex; align-items: center; gap: 14px;
+  min-height: 76px; padding: 14px 16px; border-radius: 18px; font-size: 17px; font-weight: 600;
+}
+.storageCell {
+  position: relative; flex-shrink: 0; width: 24px; height: 40px;
+  border: 1.8px solid currentColor; border-radius: 6px; overflow: hidden; color: var(--mint);
+}
+.storageCell span { position: absolute; left: 0; right: 0; bottom: 0; background: currentColor; }
+.storageTile.on .storageCell { color: var(--ink); }
+.storageNone { width: 24px; height: 40px; flex-shrink: 0; border: 1.8px dashed var(--line); border-radius: 6px; }
+.storageTile.on .storageNone { border-color: var(--ink); }
+
+/* Price scales: bars that step up */
+.scaleBars { display: inline-flex; align-items: flex-end; gap: 3px; height: 22px; flex-shrink: 0; }
+.scaleBars span { width: 5px; border-radius: 2px; background: var(--line); }
+.scaleBars .scaleOn { background: var(--mint); }
+.on .scaleBars span { background: rgba(15, 46, 28, 0.22); }
+.on .scaleBars .scaleOn { background: var(--ink); }
+.scaleBarsEmpty { width: 37px; flex-shrink: 0; }
+
+/* Matrix with shapes */
+.matrix { display: grid; gap: 8px; }
+.matrixHead,
+.matrixRow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; align-items: center; }
+.matrixHead > span:first-child { display: none; }
+.matrixHead { position: sticky; top: 0; z-index: 1; padding: 8px 0 6px; background: var(--field); }
+.matrixHeadCell { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); color: var(--muted); }
+.matrixHeadCell .shapeIcon { color: var(--mint); }
+.matrixRow { padding: 12px 0 4px; border-top: 1px solid var(--line); }
+.matrixLabel { grid-column: 1 / -1; font-size: 17px; font-weight: 600; }
+.matrixCell { height: 56px; border-radius: 16px; display: grid; place-items: center; color: var(--mint); }
+.matrixCell.on { color: var(--ink); }
+.same { font-size: 22px; font-weight: 700; line-height: 1; }
+
+/* Matrix with a price scale */
+.scaleMatrix { display: grid; gap: 26px; }
+.scaleRowLabel { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; margin-bottom: 12px; color: var(--text); }
+.scaleRowLabel .shapeIcon { color: var(--mint); }
+.scaleRow { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.scaleChip { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 12px 14px; border-radius: 16px; font-size: 16px; }
+
+/* Free text and contact */
+.field { display: block; margin-bottom: 22px; }
+.fieldLabel { display: block; font-weight: 600; font-size: 17px; margin-bottom: 6px; }
+.fieldHint { display: block; font-size: 15px; color: var(--muted); margin-bottom: 10px; }
+.fieldGap { margin-top: 28px; }
+.optional { font-weight: 400; color: var(--muted); }
+.input,
+.textarea {
+  width: 100%; font: inherit; color: var(--text); background: var(--raised);
+  border: 1.5px solid var(--line); border-radius: 16px; padding: 14px 16px;
+}
+.textarea { min-height: 110px; resize: vertical; }
+.input::placeholder, .textarea::placeholder { color: rgba(242, 251, 245, 0.4); }
+.consent { display: flex; gap: 12px; align-items: flex-start; font-size: 15px; line-height: 1.45; color: var(--muted); cursor: pointer; }
+.consent input { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--mint); flex-shrink: 0; }
+.consent a { color: var(--text); }
+
+/* Result */
+.specs { display: grid; gap: 0; margin: 0 0 30px; max-width: 460px; }
+.specs div { display: flex; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.specs div:first-child { border-top: 1px solid var(--line); }
+.specs dt { color: var(--muted); }
+.specs dd { margin: 0; font-weight: 700; text-align: right; }
+
+.hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+
+/* ---------- Wider screens ---------- */
+@media (min-width: 560px) {
+  .tiles { grid-template-columns: repeat(3, 1fr); }
+  .scaleRow { grid-template-columns: repeat(5, 1fr); }
+  .scaleChip { flex-direction: column; align-items: flex-start; gap: 10px; min-height: 92px; }
+  .matrixHead,
+  .matrixRow { grid-template-columns: minmax(150px, 1.6fr) repeat(4, 1fr); }
+  .matrixHead > span:first-child { display: block; }
+  .matrixLabel { grid-column: auto; }
+  .matrixRow { padding: 8px 0; }
+}
+
+@media (min-width: 960px) {
+  .shell,
+  .isIntro .shell,
+  .isDone .shell {
+    padding: 36px 40px 96px;
+    grid-template-columns: 300px 1fr;
+    grid-template-areas: 'top top' 'rail stage';
+    column-gap: 72px;
+  }
+  .top { margin-bottom: 56px; }
+  .rail,
+  .isIntro .rail,
+  .isDone .rail { position: sticky; top: 48px; margin: 0; justify-content: flex-start; min-height: 0; }
+  .device,
+  .isIntro .device { --h: 330px; }
+  .isDone .device { --h: 206px; }
+  .isAsking .stage { margin-top: 0; }
+  .isAsking .deviceLabel { display: block; }
+  .storageGrid { grid-template-columns: repeat(3, 1fr); }
+  .storageTile { flex-direction: column; align-items: flex-start; min-height: 128px; justify-content: space-between; }
+  .shapeIntro { grid-template-columns: repeat(3, 1fr); }
+  .shapeIntroItem { grid-template-columns: 1fr; grid-template-rows: 96px auto auto; row-gap: 6px; padding: 22px; }
+  .shapeIntroArt { grid-row: auto; justify-content: flex-start; align-items: center; }
+  .shapeIntroName { align-self: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root *, .root *::before, .root *::after { animation: none !important; transition: none !important; }
+}

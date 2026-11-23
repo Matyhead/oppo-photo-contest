@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getUser, isAdminEmail, isPhotowalkAdminEmail } from '@/lib/auth';
+import { getUser, isAdminEmail, isPhotowalkAdminEmail, isSurveyAdminEmail } from '@/lib/auth';
 import Logo from './Logo';
 import HeaderShell from './HeaderShell';
 
@@ -16,6 +16,7 @@ export default async function Header() {
           <Link href="/pravidla" className="nav-wide">Pravidla</Link>
           {user && isAdminEmail(user.email) && <Link href="/admin">Admin</Link>}
           {user && !isAdminEmail(user.email) && isPhotowalkAdminEmail(user.email) && <Link href="/admin/photowalk">Photo walk</Link>}
+          {user && !isAdminEmail(user.email) && isSurveyAdminEmail(user.email) && <Link href="/admin/dotaznik">Dotazník</Link>}
           {user ? (
             <form action="/odhlasit" method="post">
               <button type="submit" title={user.email}>Odhlásit</button>

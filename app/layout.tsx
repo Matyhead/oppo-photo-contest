@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import SiteChrome from '@/components/SiteChrome';
 import { SITE_URL } from '@/lib/config';
 import { DEFAULT_DESCRIPTION, DEFAULT_TITLE, OG_IMAGE, SITE_NAME } from '@/lib/seo';
 
@@ -32,9 +33,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="cs">
       <body>
-        <Header />
+        <SiteChrome>
+          <Header />
+        </SiteChrome>
         <main>{children}</main>
-        <Footer />
+        <SiteChrome>
+          <Footer />
+        </SiteChrome>
       </body>
     </html>
   );
