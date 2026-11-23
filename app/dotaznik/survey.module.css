@@ -73,8 +73,8 @@
   overflow: hidden;
   transition: width 1s var(--ease), height 0.7s var(--ease), border-radius 0.7s var(--ease), box-shadow 1.2s ease;
 }
-.isIntro .device { --h: 156px; box-shadow: 0 0 90px rgba(168, 240, 192, 0.28); }
-.isDone .device { --h: 132px; box-shadow: 0 0 70px rgba(168, 240, 192, 0.22); }
+.isIntro .device { --h: min(156px, calc((100vw - 40px) / var(--ar))); box-shadow: 0 0 90px rgba(168, 240, 192, 0.28); }
+.isDone .device { --h: min(132px, calc((100vw - 40px) / var(--ar))); box-shadow: 0 0 70px rgba(168, 240, 192, 0.22); }
 .deviceFill {
   position: absolute; left: 0; right: 0; bottom: 0;
   height: var(--fill, 0%);
@@ -90,10 +90,12 @@
 .deviceOpen .deviceCam { left: 75%; }
 .deviceFold {
   position: absolute; top: 8%; bottom: 8%; left: 50%;
-  border-left: 2px dashed var(--ink);
+  border-left: 2px dashed var(--mint);
   opacity: 0; transition: opacity 0.4s ease 0.5s;
 }
-.deviceOpen .deviceFold { opacity: 0.5; }
+.deviceOpen .deviceFold { opacity: 0.6; }
+/* Full phone at the end: the fold shows dark on mint. */
+.isDone .deviceFold { border-left-color: var(--ink); opacity: 0.5; }
 .deviceLabel {
   position: absolute; left: 0; right: 0; bottom: 10%;
   text-align: center; font-weight: 700; color: var(--ink);
@@ -326,9 +328,10 @@
   .rail,
   .isIntro .rail,
   .isDone .rail { position: sticky; top: 48px; margin: 0; justify-content: flex-start; min-height: 0; }
+  /* The rail is 300px wide: an open foldable gets shorter instead of spilling over the questions. */
   .device,
-  .isIntro .device { --h: 330px; }
-  .isDone .device { --h: 206px; }
+  .isIntro .device { --h: min(330px, calc(300px / var(--ar))); }
+  .isDone .device { --h: min(206px, calc(300px / var(--ar))); }
   .isAsking .stage { margin-top: 0; }
   .isAsking .deviceLabel { display: block; }
   .storageGrid { grid-template-columns: repeat(3, 1fr); }
