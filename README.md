@@ -139,3 +139,11 @@ Zprovoznění:
 1. V Supabase v **SQL Editoru** spusť `supabase/dotaznik.sql` (vytvoří tabulku `survey_responses`).
 2. Volitelně přidej do Vercelu `SURVEY_ADMIN_EMAILS` pro kolegy, kteří mají vidět jen odpovědi z dotazníku.
 3. Otevři `/admin/dotaznik`. Export do CSV otevřeš v Google Sheets (Soubor, Importovat) nebo v Excelu.
+
+### Nepovinné novinky v anketě
+
+Na konci `/dotaznik/anketa` je nepovinný odběr novinek OPPO. „Ne, děkuji“ odešle odpovědi bez kontaktu; „Ano“ vyžaduje platný e-mail a samostatný souhlas. E-mail a souhlas se neukládají do konceptu v prohlížeči. Při odmítnutí server ignoruje i dříve vyplněný e-mail.
+
+Používají se existující sloupce `survey_responses.email` a `contact_consent`, s účelem odlišeným slugem ankety. Znění, verze a čas souhlasu jsou v `open_answers.newsletter_consent_text`, `newsletter_consent_version` a `newsletter_consent_at`. Kontakty jsou v administraci ankety a v CSV včetně záznamu souhlasu. Není potřeba SQL migrace. Změna sbírá přihlášky; automatické rozesílání ani přenos do externího newsletterového nástroje nezavádí. Žádosti o ukončení odběru se vyřizují přes kontaktní e-mail uvedený v souhlasu.
+
+Validaci kontaktu a ukládání obou větví serverové akce ověřuje `npm run test:survey`.

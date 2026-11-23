@@ -506,6 +506,8 @@ export type SurveyDef = {
   open: readonly OpenQuestion[];
   /** Asks for an in-person meeting and e-mail at the end. */
   meeting: boolean;
+  /** Optional OPPO newsletter opt-in, independent of meeting invitations. */
+  newsletter?: boolean;
   /** Question ids offered as filters in the admin. */
   filters: string[];
 };

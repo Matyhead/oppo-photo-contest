@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
       [
         'odeslano', 'zdroj', 'zarizeni', 'doba_s', ...cols.map((c) => c.head), ...def.open.map((o) => o.label),
         ...(def.meeting ? ['chce_na_setkani', 'email', 'souhlas'] : []),
+        ...(def.newsletter ? ['email_novinky', 'souhlas_novinky', 'souhlas_novinky_cas', 'souhlas_novinky_verze', 'souhlas_novinky_text'] : []),
       ],
       ...responses.map((r) => [
         r.created_at, sourceLabel(r.src), r.device ?? '', r.duration_s ?? '',
@@ -53,6 +54,11 @@ export async function GET(request: NextRequest) {
         ...(def.meeting
           ? [r.wants_meeting === true ? 'ano' : r.wants_meeting === false ? 'ne' : '', r.email ?? '', r.contact_consent ? 'ano' : '']
           : []),
+        ...(def.newsletter ? [
+          r.email ?? '', r.contact_consent ? 'ano' : 'ne',
+          r.open_answers?.newsletter_consent_at ?? '', r.open_answers?.newsletter_consent_version ?? '',
+          r.open_answers?.newsletter_consent_text ?? '',
+        ] : []),
       ]),
     ]);
   } else if (type === 'photowalk') {

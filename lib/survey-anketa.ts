@@ -165,5 +165,6 @@ export const ANKETA: SurveyDef = {
   sections: { uvod: 'Úvod', otazky: 'Otázky' },
   open: [],
   meeting: false,
+  newsletter: true,
   filters: ['known', 'next_phone'],
 };

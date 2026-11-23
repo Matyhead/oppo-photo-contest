@@ -199,6 +199,12 @@ export default function Dashboard({
           <div className={s.kpiValue}>{med === null ? '-' : `${Math.floor(med / 60)}:${String(med % 60).padStart(2, '0')}`}</div>
           <div className={s.kpiLabel}>medián doby vyplnění (min:s)</div>
         </div>
+        {def.newsletter && (
+          <div className={s.kpi}>
+            <div className={s.kpiValue}>{rows.filter((r) => r.contact_consent && r.email).length}</div>
+            <div className={s.kpiLabel}>chce dostávat novinky OPPO</div>
+          </div>
+        )}
       </div>
 
       <form className={s.filters} method="get">
@@ -322,6 +328,7 @@ export default function Dashboard({
                     <th>Zařízení</th>
                     {columns.map((c) => <th key={c.key}>{c.head}</th>)}
                     {def.meeting && <th>Setkání</th>}
+                    {def.newsletter && <><th>E-mail pro novinky</th><th>Souhlas s novinkami</th></>}
                   </tr>
                 </thead>
                 <tbody>
@@ -334,6 +341,7 @@ export default function Dashboard({
                         <td key={c.key} className={c.wrap ? s.wrapCell : undefined}>{c.get(r)}</td>
                       ))}
                       {def.meeting && <td>{r.wants_meeting ? <span className={s.yes}>Ano</span> : r.wants_meeting === false ? 'Ne' : ''}</td>}
+                      {def.newsletter && <><td>{r.contact_consent ? r.email : ''}</td><td>{r.contact_consent ? 'Ano' : 'Ne'}</td></>}
                     </tr>
                   ))}
                 </tbody>

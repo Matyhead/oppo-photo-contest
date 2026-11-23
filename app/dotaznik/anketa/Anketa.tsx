@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { isAnswered, type Answers, type AnswerValue, type MultiQuestion, type Option, type Question, type SingleQuestion } from '@/lib/survey';
 import { ANKETA, ANKETA_TEXT } from '@/lib/survey-anketa';
+import { ANKETA_CONSENT_TEXT, cleanAnketaContact } from '@/lib/anketa-contact';
 import { submitAnketa } from './actions';
 import PhoneIllustration from './PhoneIllustration';
 import s from './anketa.module.css';
@@ -11,7 +12,7 @@ import s from './anketa.module.css';
 const DRAFT_KEY = `oppo-anketa-${ANKETA.slug}-ranking-v2`;
 const DONE_KEY = `oppo-anketa-${ANKETA.slug}-hotovo`;
 
-type Draft = { answers: Answers; reached: number; startedAt: number };
+type Draft = { answers: Answers; reached: number; startedAt: number; contactStep?: boolean };
 
 const store = {
   get<T>(key: string): T | null {
@@ -104,6 +105,11 @@ export default function Anketa({ src, photos, logoSrc }: { src: string; photos: 
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
   const [ready, setReady] = useState(false);
+  const [contactStep, setContactStep] = useState(false);
+  const [wantsNewsletter, setWantsNewsletter] = useState(false);
+  const [email, setEmail] = useState('');
+  const [consent, setConsent] = useState(false);
+  const contactBlock = useRef<HTMLElement>(null);
   const blocks = useRef<(HTMLElement | null)[]>([]);
   const honeypot = useRef<HTMLInputElement>(null);
   const scrollTo = useRef<number | null>(null);
@@ -116,6 +122,7 @@ export default function Anketa({ src, photos, logoSrc }: { src: string; photos: 
         setAnswers(d.answers);
         setReached(Math.min(QUESTIONS.length, Math.max(0, d.reached || 0)));
         setStartedAt(d.startedAt || 0);
+        setContactStep(d.contactStep === true);
       }
     }
     setReady(true);
@@ -123,8 +130,15 @@ export default function Anketa({ src, photos, logoSrc }: { src: string; photos: 
 
   useEffect(() => {
     if (!ready || done) return;
-    if (Object.keys(answers).length) store.set(DRAFT_KEY, { answers, reached, startedAt } satisfies Draft);
-  }, [ready, done, answers, reached, startedAt]);
+    // Contact details and consent stay in memory; never persist them in localStorage.
+    if (Object.keys(answers).length) store.set(DRAFT_KEY, { answers, reached, startedAt, contactStep } satisfies Draft);
+  }, [ready, done, answers, reached, startedAt, contactStep]);
+
+  useEffect(() => {
+    if (!contactStep) return;
+    contactBlock.current?.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
+    contactBlock.current?.focus({ preventScroll: true });
+  }, [contactStep]);
 
   // Bring a newly revealed question into view once it has rendered.
   useEffect(() => {
@@ -162,10 +176,21 @@ export default function Anketa({ src, photos, logoSrc }: { src: string; photos: 
   const allAnswered = ANKETA.questions.every((q) => isAnswered(q, answers[q.id]));
   const answeredCount = ANKETA.questions.filter((q) => isAnswered(q, answers[q.id])).length;
 
-  async function submit() {
+  const contactReady = !cleanAnketaContact({ newsletter: true, email, consent }).error;
+
+  async function submit(newsletter: boolean) {
+    if (busy || !allAnswered) return;
+    if (!newsletter) {
+      setWantsNewsletter(false);
+      setEmail('');
+      setConsent(false);
+    }
     setBusy(true);
     setError('');
-    const res = await submitAnketa({ answers, src, startedAt, website: honeypot.current?.value || '' }).catch(() => ({
+    const res = await submitAnketa({
+      answers, src, startedAt, website: honeypot.current?.value || '',
+      newsletter, email: newsletter ? email : '', consent: newsletter && consent,
+    }).catch(() => ({
       ok: false as const,
       error: 'Spojení se přerušilo. Zkuste to prosím znovu.',
     }));
@@ -266,19 +291,52 @@ export default function Anketa({ src, photos, logoSrc }: { src: string; photos: 
                         </button>
                       </div>
                     )}
-                    {last && (
+                    {last && !contactStep && (
                       <div className={s.actions}>
-                        <button type="button" className={s.primary} disabled={!allAnswered || busy} onClick={submit}>
-                          {busy ? 'Odesílám…' : 'Odeslat anketu'}
+                        <button type="button" className={s.primary} disabled={!allAnswered} onClick={() => setContactStep(true)}>
+                          Pokračovat
                         </button>
                         {!allAnswered && ok && <span className={s.note}>Chybí odpověď u některé otázky výše.</span>}
                       </div>
                     )}
-                    {last && error && <p className={s.error} role="alert">{error}</p>}
                   </li>
                 );
               })}
             </ol>
+            {contactStep && (
+              <section ref={contactBlock} tabIndex={-1} aria-labelledby="newsletter-title" className={`${s.block} ${s.contact} ${s.reveal}`}>
+                <p className={s.optional}>Zcela nepovinné</p>
+                <h2 id="newsletter-title" className={s.qTitle}>Chcete být s OPPO v obraze?</h2>
+                <p className={s.contactLead}>Chcete od nás občas dostávat novinky o telefonech OPPO, tipy a pozvánky? Pokud ne, anketu jednoduše dokončete bez e-mailu.</p>
+                <div className={s.actions}>
+                  <button type="button" className={s.secondary} disabled={busy} aria-expanded={wantsNewsletter} aria-controls="newsletter-form" onClick={() => { setWantsNewsletter(true); setError(''); }}>
+                    Ano, chci novinky
+                  </button>
+                  <button type="button" className={s.secondary} disabled={busy || !allAnswered} onClick={() => submit(false)}>
+                    {busy ? 'Odesílám…' : 'Ne, děkuji — dokončit anketu'}
+                  </button>
+                </div>
+                {wantsNewsletter && (
+                  <form id="newsletter-form" className={s.contactForm} onSubmit={(e) => { e.preventDefault(); if (contactReady) void submit(true); }}>
+                    <label className={s.field}>
+                      <span>E-mail pro odběr novinek</span>
+                      <input type="email" inputMode="email" autoComplete="email" maxLength={120} required value={email} onChange={(e) => { setEmail(e.target.value); setError(''); }} placeholder="vas@email.cz" disabled={busy} />
+                    </label>
+                    <label className={s.consent}>
+                      <input type="checkbox" required checked={consent} onChange={(e) => { setConsent(e.target.checked); setError(''); }} disabled={busy} />
+                      <span>{ANKETA_CONSENT_TEXT}{' '}<a href="/ochrana-osobnich-udaju#novinky" target="_blank" rel="noopener noreferrer">Ochrana osobních údajů</a></span>
+                    </label>
+                    <div className={s.actions}>
+                      <button type="submit" className={s.primary} disabled={busy || !allAnswered || !contactReady}>
+                        {busy ? 'Odesílám…' : 'Odeslat anketu a přihlásit se'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+                {!allAnswered && <p className={s.note}>Nejdřív prosím doplňte odpověď u otázky výše.</p>}
+                {error && <p className={s.error} role="alert">{error}</p>}
+              </section>
+            )}
           </>
         )}
       </div>
