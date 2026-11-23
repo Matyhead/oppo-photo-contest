@@ -1,12 +1,13 @@
 import Link from 'next/link';
-import { OPEN_QUESTIONS, QUESTIONS, SECTIONS, formatAnswer, labelOf, type SectionId } from '@/lib/survey';
+import { formatAnswer, labelOf, type Question, type SurveyDef } from '@/lib/survey';
+import { ANKETA } from '@/lib/survey-anketa';
+import { MAIN_SURVEY } from '@/lib/survey';
 import {
   applyFilters,
   countMatrix,
   countOptions,
   countSources,
   median,
-  questionById,
   sourceLabel,
   type SurveyFilters,
   type SurveyResponse,
@@ -18,23 +19,25 @@ const timeFmt = new Intl.DateTimeFormat('cs-CZ', { day: 'numeric', month: 'numer
 const when = (iso: string) => timeFmt.format(new Date(iso));
 const TABLE_LIMIT = 300;
 
-/** Sheet-like columns: one per question, matrix questions split into one column per row. */
-const TABLE_COLUMNS = QUESTIONS.flatMap((q) =>
-  q.kind === 'matrix'
-    ? q.rows.map((row) => ({
-        key: `${q.id}.${row.value}`,
-        head: `${q.short}: ${row.label}`,
-        wrap: false,
-        get: (r: SurveyResponse) => {
-          const v = r.answers[q.id];
-          const cell = v && typeof v === 'object' && !Array.isArray(v) ? v[row.value] : undefined;
-          return cell ? labelOf(q, cell) : '';
-        },
-      }))
-    : [{ key: q.id, head: q.short, wrap: q.kind === 'multi', get: (r: SurveyResponse) => formatAnswer(q, r.answers[q.id]) }],
-);
-
 const SETUP_SQL = `-- Supabase → SQL Editor → vložit obsah souboru supabase/dotaznik.sql → Run`;
+
+/** Sheet-like columns: one per question, matrix questions split into one column per row. */
+function tableColumns(questions: Question[]) {
+  return questions.flatMap((q) =>
+    q.kind === 'matrix'
+      ? q.rows.map((row) => ({
+          key: `${q.id}.${row.value}`,
+          head: `${q.short}: ${row.label}`,
+          wrap: false,
+          get: (r: SurveyResponse) => {
+            const v = r.answers[q.id];
+            const cell = v && typeof v === 'object' && !Array.isArray(v) ? v[row.value] : undefined;
+            return cell ? labelOf(q, cell) : '';
+          },
+        }))
+      : [{ key: q.id, head: q.short, wrap: q.kind === 'multi' || (q.kind === 'single' && q.style === 'list'), get: (r: SurveyResponse) => formatAnswer(q, r.answers[q.id]) }],
+  );
+}
 
 function FilterSelect({ name, label, value, options }: { name: string; label: string; value?: string; options: { value: string; label: string }[] }) {
   return (
@@ -50,8 +53,7 @@ function FilterSelect({ name, label, value, options }: { name: string; label: st
   );
 }
 
-function QuestionCard({ id, rows }: { id: string; rows: SurveyResponse[] }) {
-  const q = questionById(id);
+function QuestionCard({ q, rows }: { q: Question; rows: SurveyResponse[] }) {
   if (q.kind === 'matrix') {
     const data = countMatrix(rows, q);
     const columns: Column[] =
@@ -81,26 +83,43 @@ function QuestionCard({ id, rows }: { id: string; rows: SurveyResponse[] }) {
 }
 
 export default function Dashboard({
+  def,
   all,
   filters,
   fullAdmin,
   siteUrl,
 }: {
+  def: SurveyDef;
   all: SurveyResponse[] | null;
   filters: SurveyFilters;
   fullAdmin: boolean;
   siteUrl: string;
 }) {
+  const isAnketa = def.slug === ANKETA.slug;
+  const base = isAnketa ? '/admin/dotaznik?verze=anketa' : '/admin/dotaznik';
+  const q = (id: string) => def.questions.find((x) => x.id === id);
   const head = (
     <div className={s.head}>
-      <h1 className="section-title" style={{ marginBottom: 12 }}>Dotazník: široké telefony</h1>
+      <nav className={s.switch} aria-label="Verze dotazníku">
+        {[MAIN_SURVEY, ANKETA].map((d) => (
+          <Link
+            key={d.slug}
+            href={d.slug === ANKETA.slug ? '/admin/dotaznik?verze=anketa' : '/admin/dotaznik'}
+            className={d.slug === def.slug ? s.switchOn : undefined}
+            aria-current={d.slug === def.slug ? 'page' : undefined}
+          >
+            {d.name}
+          </Link>
+        ))}
+      </nav>
+      <h1 className="section-title" style={{ marginBottom: 12 }}>{isAnketa ? 'Anketa: nový formát smartphonu' : 'Dotazník: široké telefony'}</h1>
       <p className="muted">
-        Odpovědi z <Link href="/dotaznik">/dotaznik</Link>. Každý influencer nebo médium může dostat vlastní odkaz, třeba{' '}
-        <code>{siteUrl.replace(/^https?:\/\//, '')}/dotaznik?src=jmeno</code>. Zdroj se pak ukáže v přehledu i v exportu.
+        Odpovědi z <Link href={def.path}>{def.path}</Link>. Každý influencer nebo médium může dostat vlastní odkaz, třeba{' '}
+        <code>{siteUrl.replace(/^https?:\/\//, '')}{def.path}?src=jmeno</code>. Zdroj se pak ukáže v přehledu i v exportu.
       </p>
       <div className={s.links}>
-        <a href="/api/admin/export?typ=dotaznik">Export všech odpovědí (CSV pro Google Sheets a Excel)</a>
-        <Link href="/dotaznik" target="_blank">Otevřít dotazník</Link>
+        <a href={`/api/admin/export?typ=${isAnketa ? 'anketa' : 'dotaznik'}`}>Export všech odpovědí (CSV pro Google Sheets a Excel)</a>
+        <Link href={def.path} target="_blank">Otevřít {isAnketa ? 'anketu' : 'dotazník'}</Link>
         {fullAdmin && <Link href="/admin">Zpět do administrace</Link>}
       </div>
     </div>
@@ -125,16 +144,26 @@ export default function Dashboard({
   const last24 = rows.filter((r) => new Date(r.created_at).getTime() >= dayAgo).length;
   const meeting = rows.filter((r) => r.wants_meeting && r.email);
   const emailOnly = rows.filter((r) => !r.wants_meeting && r.email);
+  const mobile = rows.filter((r) => r.device === 'mobil').length;
   const med = median(rows.map((r) => r.duration_s).filter((d): d is number => typeof d === 'number'));
   const sources = countSources(all);
   const opt = (id: string) => {
-    const q = questionById(id);
-    return q.kind === 'matrix' ? [] : q.options.map((o) => ({ value: o.value, label: o.label }));
+    const x = q(id);
+    return !x || x.kind === 'matrix' ? [] : x.options.map((o) => ({ value: o.value, label: o.label }));
   };
-  const meta = (r: SurveyResponse) =>
-    [r.answers.phone && labelOf(questionById('phone'), r.answers.phone as string), r.answers.age && labelOf(questionById('age'), r.answers.age as string), when(r.created_at)]
+  const meta = (r: SurveyResponse) => {
+    const phone = q('phone');
+    const age = q('age');
+    return [
+      phone && r.answers.phone ? formatAnswer(phone, r.answers.phone) : '',
+      age && r.answers.age ? formatAnswer(age, r.answers.age) : '',
+      when(r.created_at),
+    ]
       .filter(Boolean)
       .join(', ');
+  };
+  const columns = tableColumns(def.questions);
+  const sectionIds = Object.keys(def.sections);
 
   return (
     <div className={s.wrap}>
@@ -149,14 +178,23 @@ export default function Dashboard({
           <div className={s.kpiValue}>{last24}</div>
           <div className={s.kpiLabel}>za posledních 24 hodin</div>
         </div>
-        <div className={s.kpi}>
-          <div className={s.kpiValue}>{meeting.length}</div>
-          <div className={s.kpiLabel}>chce pozvat na setkání</div>
-        </div>
-        <div className={s.kpi}>
-          <div className={s.kpiValue}>{emailOnly.length}</div>
-          <div className={s.kpiLabel}>nechalo e-mail jen na vyzkoušení</div>
-        </div>
+        {def.meeting ? (
+          <>
+            <div className={s.kpi}>
+              <div className={s.kpiValue}>{meeting.length}</div>
+              <div className={s.kpiLabel}>chce pozvat na setkání</div>
+            </div>
+            <div className={s.kpi}>
+              <div className={s.kpiValue}>{emailOnly.length}</div>
+              <div className={s.kpiLabel}>nechalo e-mail jen na vyzkoušení</div>
+            </div>
+          </>
+        ) : (
+          <div className={s.kpi}>
+            <div className={s.kpiValue}>{rows.length ? `${Math.round((mobile / rows.length) * 100)} %` : '-'}</div>
+            <div className={s.kpiLabel}>vyplnilo na mobilu</div>
+          </div>
+        )}
         <div className={s.kpi}>
           <div className={s.kpiValue}>{med === null ? '-' : `${Math.floor(med / 60)}:${String(med % 60).padStart(2, '0')}`}</div>
           <div className={s.kpiLabel}>medián doby vyplnění (min:s)</div>
@@ -164,18 +202,21 @@ export default function Dashboard({
       </div>
 
       <form className={s.filters} method="get">
+        {isAnketa && <input type="hidden" name="verze" value="anketa" />}
         <FilterSelect name="src" label="Zdroj" value={filters.src} options={sources.map((x) => ({ value: x.value, label: x.label }))} />
-        <FilterSelect name="phone" label="Telefon" value={filters.phone} options={opt('phone')} />
-        <FilterSelect name="age" label="Věk" value={filters.age} options={opt('age')} />
-        <FilterSelect name="pick" label="Vybral(a) by" value={filters.pick} options={opt('pick')} />
+        {def.filters.map((id) => (
+          <FilterSelect key={id} name={id} label={q(id)?.short ?? id} value={filters[id]} options={opt(id)} />
+        ))}
         <FilterSelect name="device" label="Zařízení" value={filters.device} options={[{ value: 'mobil', label: 'Mobil' }, { value: 'pocitac', label: 'Počítač' }]} />
-        <FilterSelect name="meet" label="Setkání" value={filters.meet} options={[{ value: 'ano', label: 'Chce pozvat' }, { value: 'ne', label: 'Nechce' }]} />
+        {def.meeting && (
+          <FilterSelect name="meet" label="Setkání" value={filters.meet} options={[{ value: 'ano', label: 'Chce pozvat' }, { value: 'ne', label: 'Nechce' }]} />
+        )}
         <button className="btn btn-black btn-small" type="submit">Filtrovat</button>
-        {filtered && <Link className={s.filterNote} href="/admin/dotaznik">Zrušit filtry</Link>}
+        {filtered && <Link className={s.filterNote} href={base}>Zrušit filtry</Link>}
       </form>
 
       {all.length === 0 ? (
-        <p className="muted">Zatím tu nejsou žádné odpovědi. Jakmile někdo dotazník odešle, objeví se tady.</p>
+        <p className="muted">Zatím tu nejsou žádné odpovědi. Jakmile někdo {isAnketa ? 'anketu' : 'dotazník'} odešle, objeví se tady.</p>
       ) : (
         <>
           <section className={s.section}>
@@ -189,84 +230,87 @@ export default function Dashboard({
             </div>
           </section>
 
-          {(Object.keys(SECTIONS) as SectionId[]).map((sec) => (
+          {sectionIds.map((sec) => (
             <section key={sec} className={s.section}>
-              <h2 className={s.sectionTitle}>{SECTIONS[sec]}</h2>
+              <h2 className={s.sectionTitle}>{def.sections[sec]}</h2>
               <div className={s.grid}>
-                {QUESTIONS.filter((q) => q.section === sec).map((q) => (
-                  <QuestionCard key={q.id} id={q.id} rows={rows} />
+                {def.questions.filter((x) => x.section === sec).map((x) => (
+                  <QuestionCard key={x.id} q={x} rows={rows} />
                 ))}
               </div>
             </section>
           ))}
 
-          <section className={s.section}>
-            <h2 className={s.sectionTitle}>Volné odpovědi</h2>
-            <div className={s.grid}>
-              {OPEN_QUESTIONS.map((o) => {
-                const list = rows.filter((r) => r.open_answers?.[o.id]);
-                return (
-                  <div key={o.id} className={s.qCard}>
-                    <h3 className={s.qTitle}>{o.label}</h3>
-                    <p className={s.qMeta}>{list.length} odpovědí, nejnovější nahoře</p>
-                    <div className={s.quotes}>
-                      {list.length === 0 && <p className="muted small">Zatím nic.</p>}
-                      {list.slice(0, 200).map((r) => (
-                        <p key={r.id} className={s.quote}>
-                          {r.open_answers[o.id]}
-                          <span className={s.quoteMeta}>{meta(r)}</span>
-                        </p>
-                      ))}
+          {def.open.length > 0 && (
+            <section className={s.section}>
+              <h2 className={s.sectionTitle}>Volné odpovědi</h2>
+              <div className={s.grid}>
+                {def.open.map((o) => {
+                  const list = rows.filter((r) => r.open_answers?.[o.id]);
+                  return (
+                    <div key={o.id} className={s.qCard}>
+                      <h3 className={s.qTitle}>{o.label}</h3>
+                      <p className={s.qMeta}>{list.length} odpovědí, nejnovější nahoře</p>
+                      <div className={s.quotes}>
+                        {list.length === 0 && <p className="muted small">Zatím nic.</p>}
+                        {list.slice(0, 200).map((r) => (
+                          <p key={r.id} className={s.quote}>
+                            {r.open_answers[o.id]}
+                            <span className={s.quoteMeta}>{meta(r)}</span>
+                          </p>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className={s.section}>
-            <h2 className={s.sectionTitle}>Chtějí pozvat na osobní setkání ({meeting.length})</h2>
-            <p className="muted small">
-              Lidé, kteří chtějí na setkání a dali souhlas s kontaktováním. Podle odpovědí si vyberte, koho pozvete.
-            </p>
-            {meeting.length === 0 ? (
-              <p className="muted">Zatím nikdo.</p>
-            ) : (
-              <div className={s.tableWrap}>
-                <table className={s.table}>
-                  <thead>
-                    <tr>
-                      <th>E-mail</th><th>Odesláno</th><th>Telefon</th><th>Věk</th><th>Vybral(a) by</th><th>Rozpočet</th><th>Odrazuje</th><th>Zdroj</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {meeting.map((r) => (
-                      <tr key={r.id}>
-                        <td><a href={`mailto:${r.email}`}>{r.email}</a></td>
-                        <td>{when(r.created_at)}</td>
-                        <td>{formatAnswer(questionById('phone'), r.answers.phone)}</td>
-                        <td>{formatAnswer(questionById('age'), r.answers.age)}</td>
-                        <td>{formatAnswer(questionById('pick'), r.answers.pick)}</td>
-                        <td>{formatAnswer(questionById('budget_next'), r.answers.budget_next)}</td>
-                        <td className={s.wrapCell}>{formatAnswer(questionById('deter'), r.answers.deter)}</td>
-                        <td>{sourceLabel(r.src)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                  );
+                })}
               </div>
-            )}
-            {emailOnly.length > 0 && (
-              <p className="small muted">
-                Dalších {emailOnly.length} lidí nechalo e-mail jen pro případné vyzkoušení. Najdete je v exportu CSV.
+            </section>
+          )}
+
+          {def.meeting && (
+            <section className={s.section}>
+              <h2 className={s.sectionTitle}>Chtějí pozvat na osobní setkání ({meeting.length})</h2>
+              <p className="muted small">
+                Lidé, kteří chtějí na setkání a dali souhlas s kontaktováním. Podle odpovědí si vyberte, koho pozvete.
               </p>
-            )}
-          </section>
+              {meeting.length === 0 ? (
+                <p className="muted">Zatím nikdo.</p>
+              ) : (
+                <div className={s.tableWrap}>
+                  <table className={s.table}>
+                    <thead>
+                      <tr>
+                        <th>E-mail</th><th>Odesláno</th><th>Telefon</th><th>Věk</th><th>Vybral(a) by</th><th>Rozpočet</th><th>Odrazuje</th><th>Zdroj</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {meeting.map((r) => (
+                        <tr key={r.id}>
+                          <td><a href={`mailto:${r.email}`}>{r.email}</a></td>
+                          <td>{when(r.created_at)}</td>
+                          {['phone', 'age', 'pick', 'budget_next'].map((id) => (
+                            <td key={id}>{q(id) ? formatAnswer(q(id)!, r.answers[id]) : ''}</td>
+                          ))}
+                          <td className={s.wrapCell}>{q('deter') ? formatAnswer(q('deter')!, r.answers.deter) : ''}</td>
+                          <td>{sourceLabel(r.src)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {emailOnly.length > 0 && (
+                <p className="small muted">
+                  Dalších {emailOnly.length} lidí nechalo e-mail jen pro případné vyzkoušení. Najdete je v exportu CSV.
+                </p>
+              )}
+            </section>
+          )}
 
           <section className={s.section}>
             <h2 className={s.sectionTitle}>Tabulka odpovědí</h2>
             <p className="muted small">
-              {rows.length > TABLE_LIMIT ? `Posledních ${TABLE_LIMIT} odpovědí z ${rows.length}. ` : ''}Všechny odpovědi i s volným textem jsou v exportu CSV,
+              {rows.length > TABLE_LIMIT ? `Posledních ${TABLE_LIMIT} odpovědí z ${rows.length}. ` : ''}Všechny odpovědi jsou v exportu CSV,
               který otevřete v Google Sheets (Soubor, Importovat) nebo v Excelu.
             </p>
             <div className={s.tableWrap}>
@@ -276,8 +320,8 @@ export default function Dashboard({
                     <th>Odesláno</th>
                     <th>Zdroj</th>
                     <th>Zařízení</th>
-                    {TABLE_COLUMNS.map((c) => <th key={c.key}>{c.head}</th>)}
-                    <th>Setkání</th>
+                    {columns.map((c) => <th key={c.key}>{c.head}</th>)}
+                    {def.meeting && <th>Setkání</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -286,10 +330,10 @@ export default function Dashboard({
                       <td>{when(r.created_at)}</td>
                       <td>{sourceLabel(r.src)}</td>
                       <td>{r.device === 'mobil' ? 'Mobil' : r.device === 'pocitac' ? 'Počítač' : ''}</td>
-                      {TABLE_COLUMNS.map((c) => (
+                      {columns.map((c) => (
                         <td key={c.key} className={c.wrap ? s.wrapCell : undefined}>{c.get(r)}</td>
                       ))}
-                      <td>{r.wants_meeting ? <span className={s.yes}>Ano</span> : r.wants_meeting === false ? 'Ne' : ''}</td>
+                      {def.meeting && <td>{r.wants_meeting ? <span className={s.yes}>Ano</span> : r.wants_meeting === false ? 'Ne' : ''}</td>}
                     </tr>
                   ))}
                 </tbody>

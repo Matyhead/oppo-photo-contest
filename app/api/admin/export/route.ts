@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getUser, isAdminEmail, isPhotowalkAdminEmail, isSurveyAdminEmail } from '@/lib/auth';
-import { OPEN_QUESTIONS, QUESTIONS, formatAnswer, labelOf } from '@/lib/survey';
-import { listResponses, sourceLabel } from '@/lib/survey-data';
+import { formatAnswer, labelOf } from '@/lib/survey';
+import { listResponses, sourceLabel, surveyByVersion } from '@/lib/survey-data';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { PHOTOWALK } from '@/lib/config';
 
@@ -14,17 +14,18 @@ function csv(rows: (string | number | boolean | null | undefined)[][]) {
 export async function GET(request: NextRequest) {
   const user = await getUser();
   const typ = request.nextUrl.searchParams.get('typ');
-  const type = typ === 'hlasy' ? 'hlasy' : typ === 'photowalk' ? 'photowalk' : typ === 'dotaznik' ? 'dotaznik' : 'fotky';
+  const type = typ === 'hlasy' ? 'hlasy' : typ === 'photowalk' ? 'photowalk' : typ === 'dotaznik' ? 'dotaznik' : typ === 'anketa' ? 'anketa' : 'fotky';
   const allowed =
-    type === 'photowalk' ? isPhotowalkAdminEmail(user?.email) : type === 'dotaznik' ? isSurveyAdminEmail(user?.email) : isAdminEmail(user?.email);
+    type === 'photowalk' ? isPhotowalkAdminEmail(user?.email) : type === 'dotaznik' || type === 'anketa' ? isSurveyAdminEmail(user?.email) : isAdminEmail(user?.email);
   if (!user || !allowed) return new NextResponse('Forbidden', { status: 403 });
   const supabase = createAdminClient();
   let body: string;
 
-  if (type === 'dotaznik') {
+  if (type === 'dotaznik' || type === 'anketa') {
     // One column per question; matrix questions get one column per row. Values are the labels people saw.
+    const def = surveyByVersion(type === 'anketa' ? 'anketa' : undefined);
     const cols: { head: string; get: (a: Record<string, unknown>) => string }[] = [];
-    for (const q of QUESTIONS) {
+    for (const q of def.questions) {
       if (q.kind === 'matrix') {
         for (const r of q.rows) {
           cols.push({
@@ -39,15 +40,19 @@ export async function GET(request: NextRequest) {
         cols.push({ head: q.short, get: (a) => formatAnswer(q, a[q.id] as never) });
       }
     }
-    const responses = ((await listResponses()) ?? []).slice().reverse();
+    const responses = ((await listResponses(def.slug)) ?? []).slice().reverse();
     body = csv([
-      ['odeslano', 'zdroj', 'zarizeni', 'doba_s', ...cols.map((c) => c.head), ...OPEN_QUESTIONS.map((o) => o.label), 'chce_na_setkani', 'email', 'souhlas'],
+      [
+        'odeslano', 'zdroj', 'zarizeni', 'doba_s', ...cols.map((c) => c.head), ...def.open.map((o) => o.label),
+        ...(def.meeting ? ['chce_na_setkani', 'email', 'souhlas'] : []),
+      ],
       ...responses.map((r) => [
         r.created_at, sourceLabel(r.src), r.device ?? '', r.duration_s ?? '',
         ...cols.map((c) => c.get(r.answers as Record<string, unknown>)),
-        ...OPEN_QUESTIONS.map((o) => r.open_answers?.[o.id] ?? ''),
-        r.wants_meeting === true ? 'ano' : r.wants_meeting === false ? 'ne' : '',
-        r.email ?? '', r.contact_consent ? 'ano' : '',
+        ...def.open.map((o) => r.open_answers?.[o.id] ?? ''),
+        ...(def.meeting
+          ? [r.wants_meeting === true ? 'ano' : r.wants_meeting === false ? 'ne' : '', r.email ?? '', r.contact_consent ? 'ano' : '']
+          : []),
       ]),
     ]);
   } else if (type === 'photowalk') {
@@ -93,7 +98,7 @@ export async function GET(request: NextRequest) {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
       'Content-Disposition': `attachment; filename="${
-        type === 'photowalk' ? 'photowalk-prihlasky' : type === 'dotaznik' ? 'dotaznik-siroke-telefony' : `lovci-svetla-${type}`
+        type === 'photowalk' ? 'photowalk-prihlasky' : type === 'dotaznik' ? 'dotaznik-siroke-telefony' : type === 'anketa' ? 'anketa-novy-format' : `lovci-svetla-${type}`
       }.csv"`,
     },
   });

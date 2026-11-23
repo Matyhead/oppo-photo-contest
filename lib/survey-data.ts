@@ -2,6 +2,8 @@ import 'server-only';
 import { createAdminClient } from './supabase/admin';
 import { isSupabaseConfigured } from './env';
 import { QUESTIONS, SURVEY, type Answers, type OpenAnswers, type Question } from './survey';
+import { ANKETA } from './survey-anketa';
+import { MAIN_SURVEY, type SurveyDef } from './survey';
 
 export type SurveyResponse = {
   id: string;
@@ -16,10 +18,14 @@ export type SurveyResponse = {
   created_at: string;
 };
 
-export type SurveyFilters = { src?: string; phone?: string; age?: string; pick?: string; device?: string; meet?: string };
+/** src, device and meet are fixed; any other key is a question id with the picked value. */
+export type SurveyFilters = Record<string, string | undefined>;
+
+/** Survey shown in the admin: ?verze=anketa for the test survey, the main one otherwise. */
+export const surveyByVersion = (v: string | undefined): SurveyDef => (v === 'anketa' ? ANKETA : MAIN_SURVEY);
 
 /** null = the table is missing (supabase/dotaznik.sql not run yet). */
-export async function listResponses(): Promise<SurveyResponse[] | null> {
+export async function listResponses(slug: string = SURVEY.slug): Promise<SurveyResponse[] | null> {
   if (!isSupabaseConfigured()) return [];
   const supabase = createAdminClient();
   const rows: SurveyResponse[] = [];
@@ -27,7 +33,7 @@ export async function listResponses(): Promise<SurveyResponse[] | null> {
     const { data, error } = await supabase
       .from('survey_responses')
       .select('id, answers, open_answers, src, wants_meeting, email, contact_consent, duration_s, device, created_at')
-      .eq('survey', SURVEY.slug)
+      .eq('survey', slug)
       .order('created_at', { ascending: false })
       .range(from, from + 999);
     if (error) {
@@ -42,14 +48,13 @@ export async function listResponses(): Promise<SurveyResponse[] | null> {
 }
 
 export function applyFilters(rows: SurveyResponse[], f: SurveyFilters) {
+  const questionFilters = Object.entries(f).filter(([k, v]) => v && !['src', 'device', 'meet'].includes(k));
   return rows.filter(
     (r) =>
       (!f.src || r.src === f.src) &&
-      (!f.phone || r.answers.phone === f.phone) &&
-      (!f.age || r.answers.age === f.age) &&
-      (!f.pick || r.answers.pick === f.pick) &&
       (!f.device || r.device === f.device) &&
-      (!f.meet || (f.meet === 'ano' ? r.wants_meeting === true : r.wants_meeting !== true)),
+      (!f.meet || (f.meet === 'ano' ? r.wants_meeting === true : r.wants_meeting !== true)) &&
+      questionFilters.every(([k, v]) => r.answers[k] === v),
   );
 }
 

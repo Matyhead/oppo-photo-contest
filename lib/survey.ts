@@ -12,7 +12,7 @@ export const SURVEY = {
 export type Shape = 'A' | 'B' | 'C';
 export type SectionId = 'tvar' | 'cena' | 'pamet' | 'nakup' | 'vy';
 
-export const SECTIONS: Record<SectionId, string> = {
+export const SECTIONS: Record<string, string> = {
   tvar: 'Tvar',
   cena: 'Cena',
   pamet: 'Paměť',
@@ -32,7 +32,7 @@ export type Option = {
 };
 
 /** short: column name in the admin table and the CSV. */
-type Base = { id: string; section: SectionId; title: string; short: string; help?: string };
+type Base = { id: string; section: string; title: string; short: string; help?: string };
 
 export type SingleQuestion = Base & {
   kind: 'single';
@@ -483,7 +483,24 @@ export const OPEN_MAX = 1000;
 export type MatrixValue = Record<string, string>;
 export type AnswerValue = string | string[] | MatrixValue;
 export type Answers = Record<string, AnswerValue>;
-export type OpenAnswers = Partial<Record<(typeof OPEN_QUESTIONS)[number]['id'], string>>;
+export type OpenAnswers = Partial<Record<string, string>>;
+export type OpenQuestion = { id: string; label: string };
+
+/** Everything the admin, the CSV export and the server check need to know about one survey. */
+export type SurveyDef = {
+  slug: string;
+  title: string;
+  path: string;
+  /** Short name in the admin switch. */
+  name: string;
+  questions: Question[];
+  sections: Record<string, string>;
+  open: readonly OpenQuestion[];
+  /** Asks for an in-person meeting and e-mail at the end. */
+  meeting: boolean;
+  /** Question ids offered as filters in the admin. */
+  filters: string[];
+};
 
 export function isAnswered(q: Question, v: AnswerValue | undefined): boolean {
   if (v === undefined) return false;
@@ -513,10 +530,10 @@ export function formatAnswer(q: Question, v: AnswerValue | undefined): string {
  * Server-side check: keeps only known questions and options, and reports the first problem.
  * Returns cleaned answers so nothing unexpected reaches the database.
  */
-export function cleanAnswers(raw: unknown): { answers: Answers; error?: string } {
+export function cleanAnswers(raw: unknown, questions: Question[] = QUESTIONS): { answers: Answers; error?: string } {
   const input = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const answers: Answers = {};
-  for (const q of QUESTIONS) {
+  for (const q of questions) {
     const v = input[q.id];
     if (q.kind === 'single') {
       if (typeof v !== 'string' || !q.options.some((o) => o.value === v)) return { answers, error: `Chybí odpověď: ${q.title}` };
@@ -542,10 +559,10 @@ export function cleanAnswers(raw: unknown): { answers: Answers; error?: string }
   return { answers };
 }
 
-export function cleanOpen(raw: unknown): OpenAnswers {
+export function cleanOpen(raw: unknown, open: readonly OpenQuestion[] = OPEN_QUESTIONS): OpenAnswers {
   const input = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const out: OpenAnswers = {};
-  for (const q of OPEN_QUESTIONS) {
+  for (const q of open) {
     const v = input[q.id];
     if (typeof v === 'string' && v.trim()) out[q.id] = v.trim().replace(/\r\n/g, '\n').slice(0, OPEN_MAX);
   }
@@ -557,3 +574,16 @@ export function cleanSource(raw: unknown): string {
   const s = typeof raw === 'string' ? raw : '';
   return s.toLowerCase().replace(/[^a-z0-9_.-]/g, '').slice(0, 40) || 'primo';
 }
+
+/** The main survey at /dotaznik. */
+export const MAIN_SURVEY: SurveyDef = {
+  slug: SURVEY.slug,
+  title: SURVEY.title,
+  path: '/dotaznik',
+  name: 'Hlavní dotazník',
+  questions: QUESTIONS,
+  sections: SECTIONS,
+  open: OPEN_QUESTIONS,
+  meeting: true,
+  filters: ['phone', 'age', 'pick'],
+};
