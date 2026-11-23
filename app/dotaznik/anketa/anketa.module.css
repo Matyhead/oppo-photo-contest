@@ -135,6 +135,18 @@
 
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 
+.contact { margin-top: 18px; scroll-margin-top: 28px; }
+.optional { display: inline-block; margin: 0 0 14px; padding: 5px 10px; border-radius: 999px; background: var(--green-soft); color: var(--green); font-size: 13px; font-weight: 700; }
+.contactLead { margin: 12px 0 0; font-size: 16px; line-height: 1.6; color: var(--muted); }
+.contactForm { display: grid; gap: 20px; margin-top: 26px; }
+.field { display: grid; gap: 8px; font-size: 15px; font-weight: 600; }
+.field input { width: 100%; min-height: 52px; padding: 12px 14px; font: inherit; font-size: 16px; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 12px; }
+.consent { display: flex; align-items: flex-start; gap: 12px; font-size: 14px; line-height: 1.6; color: var(--muted); }
+.consent input { flex-shrink: 0; width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--green); }
+.consent a { color: var(--green); text-underline-offset: 3px; }
+.field input:focus-visible, .consent input:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+.contactForm .actions { margin-top: 0; }
+
 /* ---------- Wider screens ---------- */
 @media (min-width: 720px) {
   .block { padding: 32px 34px 30px; }

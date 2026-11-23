@@ -165,7 +165,21 @@ export default function PrivacyPage() {
           18 let kontaktní údaje vůbec nenabízíme.
         </p>
 
-        <h2>11. Změny</h2>
+        <h2 id="novinky">11. Nepovinný odběr novinek OPPO v anketě</h2>
+        <p>
+          Na konci <Link href="/dotaznik/anketa">ankety o novém formátu smartphonu</Link> si můžeš dobrovolně zvolit odběr
+          novinek, nabídek a pozvánek týkajících se OPPO. Anketu lze dokončit bez e-mailu i bez souhlasu s odběrem.
+          K odběru tě přihlásíme pouze po zadání e-mailu a samostatném zaškrtnutí souhlasu.
+        </p>
+        <p>
+          Správcem je {ORGANIZER.name} (viz bod 1). Ukládáme e-mail spolu s odpověďmi z ankety a záznamem o uděleném souhlasu
+          (čas, znění a verze). Údaje slouží k zasílání uvedených zpráv na základě tvého souhlasu. E-mail pro tento účel
+          uchováváme do odvolání souhlasu nebo ukončení odběru. Souhlas můžeš kdykoli odvolat e-mailem na {mail};
+          odvolání nemá vliv na zákonnost předchozího zpracování. Odvoláním se odběr ukončí. Údaje jsou uložené
+          u zpracovatelů uvedených v bodě 4; tvoje práva popisuje bod 8.
+        </p>
+
+        <h2>12. Změny</h2>
         <p>
           Tyto zásady můžeme upravit, například když se změní způsob provozu soutěže. Aktuální znění najdeš vždy na této stránce.
           Pravidla soutěže jsou na stránce <Link href="/pravidla">Pravidla soutěže</Link>.
