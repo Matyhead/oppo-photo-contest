@@ -39,7 +39,15 @@ export type SingleQuestion = Base & {
   style: 'list' | 'tiles' | 'shapes' | 'scale' | 'storage';
   options: Option[];
 };
-export type MultiQuestion = Base & { kind: 'multi'; options: Option[]; max?: number };
+export type MultiQuestion = Base & { kind: 'multi'; options: Option[]; max?: number; ranked?: boolean; previousId?: string };
+
+/** A ranking must contain every regular option once, or one exclusive opt-out. */
+export function isCompleteRanking(q: MultiQuestion, value: unknown): value is string[] {
+  if (!Array.isArray(value) || !value.length || new Set(value).size !== value.length) return false;
+  if (!value.every((v) => typeof v === 'string' && q.options.some((o) => o.value === v))) return false;
+  const exclusive = value.some((v) => q.options.find((o) => o.value === v)?.exclusive);
+  return exclusive ? value.length === 1 : value.length === q.options.filter((o) => !o.exclusive).length;
+}
 export type MatrixQuestion = Base & {
   kind: 'matrix';
   style: 'shapes' | 'scale';
@@ -505,7 +513,7 @@ export type SurveyDef = {
 export function isAnswered(q: Question, v: AnswerValue | undefined): boolean {
   if (v === undefined) return false;
   if (q.kind === 'single') return typeof v === 'string' && v.length > 0;
-  if (q.kind === 'multi') return Array.isArray(v) && v.length > 0;
+  if (q.kind === 'multi') return q.ranked ? isCompleteRanking(q, v) : Array.isArray(v) && v.length > 0;
   return typeof v === 'object' && !Array.isArray(v) && q.rows.every((r) => typeof v[r.value] === 'string');
 }
 
@@ -521,9 +529,23 @@ export function labelOf(q: Question, value: string): string {
 export function formatAnswer(q: Question, v: AnswerValue | undefined): string {
   if (v === undefined) return '';
   if (q.kind === 'single') return typeof v === 'string' ? labelOf(q, v) : '';
-  if (q.kind === 'multi') return Array.isArray(v) ? v.map((x) => labelOf(q, x)).join(', ') : '';
+  if (q.kind === 'multi') {
+    if (!Array.isArray(v)) return '';
+    return v.map((x, i) => {
+      const rank = q.ranked && !q.options.find((o) => o.value === x)?.exclusive ? `${i + 1}. ` : '';
+      return `${rank}${labelOf(q, x)}`;
+    }).join(q.ranked ? '; ' : ', ');
+  }
   if (typeof v !== 'object' || Array.isArray(v)) return '';
   return q.rows.map((r) => `${r.label}: ${v[r.value] ? labelOf(q, v[r.value]) : '-'}`).join('; ');
+}
+
+/** Keep pre-ranking responses readable without assigning them a fictitious order. */
+export function formatResponseAnswer(q: Question, answers: Answers): string {
+  if (q.kind === 'multi' && q.ranked && answers[q.id] === undefined && q.previousId && answers[q.previousId] !== undefined) {
+    return `Dřívější výběr bez pořadí: ${formatAnswer({ ...q, ranked: false }, answers[q.previousId])}`;
+  }
+  return formatAnswer(q, answers[q.id]);
 }
 
 /**
@@ -539,6 +561,7 @@ export function cleanAnswers(raw: unknown, questions: Question[] = QUESTIONS): {
       if (typeof v !== 'string' || !q.options.some((o) => o.value === v)) return { answers, error: `Chybí odpověď: ${q.title}` };
       answers[q.id] = v;
     } else if (q.kind === 'multi') {
+      if (q.ranked && !isCompleteRanking(q, v)) return { answers, error: `Seřaďte všechny možnosti: ${q.title}` };
       if (!Array.isArray(v) || v.length === 0) return { answers, error: `Chybí odpověď: ${q.title}` };
       const picked = [...new Set(v.filter((x): x is string => typeof x === 'string' && q.options.some((o) => o.value === x)))];
       if (picked.length === 0) return { answers, error: `Chybí odpověď: ${q.title}` };

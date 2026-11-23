@@ -7,8 +7,9 @@ import { submitAnketa } from './actions';
 import PhoneIllustration from './PhoneIllustration';
 import s from './anketa.module.css';
 
-const DRAFT_KEY = `oppo-anketa-${ANKETA.slug}`;
-const DONE_KEY = `${DRAFT_KEY}-hotovo`;
+// Separate drafts because the last two questions changed order and ranking semantics.
+const DRAFT_KEY = `oppo-anketa-${ANKETA.slug}-ranking-v2`;
+const DONE_KEY = `oppo-anketa-${ANKETA.slug}-hotovo`;
 
 type Draft = { answers: Answers; reached: number; startedAt: number };
 
@@ -54,6 +55,7 @@ function Mark({ on, multi }: { on: boolean; multi: boolean }) {
 function Options({ q, value, onChange }: { q: Question; value: AnswerValue | undefined; onChange: (v: AnswerValue) => void }) {
   if (q.kind === 'matrix') return null;
   const multi = q.kind === 'multi';
+  const ranked = multi && q.ranked;
   const picked = multi ? ((value as string[]) || []) : value ? [value as string] : [];
   const toggle = (o: Option) => {
     if (!multi) return onChange(o.value);
@@ -76,11 +78,19 @@ function Options({ q, value, onChange }: { q: Question; value: AnswerValue | und
             className={`${s.option} ${on ? s.optionOn : ''} ${o.exclusive ? s.optionLast : ''}`}
             onClick={() => toggle(o)}
           >
-            <Mark on={on} multi={multi} />
+            {ranked && !o.exclusive ? (
+              <span className={`${s.mark} ${on ? s.markOn : ''}`} aria-hidden>{on ? picked.indexOf(o.value) + 1 : ''}</span>
+            ) : <Mark on={on} multi={multi} />}
+            {ranked && on && !o.exclusive && <span className={s.srOnly}>{picked.indexOf(o.value) + 1}. místo: </span>}
             <span>{o.label}</span>
           </button>
         );
       })}
+      {ranked && <p className={s.help} aria-live="polite">
+        {picked.some((v) => q.options.find((o) => o.value === v)?.exclusive)
+          ? 'Vybráno: nic by mě nepřesvědčilo.'
+          : `Seřazeno ${picked.length} z ${q.options.filter((o) => !o.exclusive).length} možností.`}
+      </p>}
     </div>
   );
 }
@@ -214,7 +224,10 @@ export default function Anketa({ src, photos, logoSrc }: { src: string; photos: 
             </section>
 
             <section className={s.block}>
-              <h2 className={s.qTitle}>{INTRO_Q.title}</h2>
+              <div className={s.qHead}>
+                <span className={s.num} aria-label={`Otázka 1 z ${ANKETA.questions.length}`}>1/{ANKETA.questions.length}</span>
+                <h2 className={s.qTitle}>{INTRO_Q.title}</h2>
+              </div>
               <Options q={INTRO_Q} value={answers[INTRO_Q.id]} onChange={(v) => setAnswers((a) => ({ ...a, [INTRO_Q.id]: v }))} />
               <div className={s.actions}>
                 <button type="button" className={s.primary} disabled={!answers[INTRO_Q.id]} onClick={start}>
@@ -226,7 +239,7 @@ export default function Anketa({ src, photos, logoSrc }: { src: string; photos: 
               </div>
             </section>
 
-            <ol className={s.list}>
+            <ol className={s.list} start={2}>
               {QUESTIONS.slice(0, reached).map((q, i) => {
                 const last = i === QUESTIONS.length - 1;
                 const ok = isAnswered(q, answers[q.id]);
@@ -239,7 +252,7 @@ export default function Anketa({ src, photos, logoSrc }: { src: string; photos: 
                     className={`${s.block} ${s.reveal}`}
                   >
                     <div className={s.qHead}>
-                      <span className={s.num} aria-hidden>{i + 1}</span>
+                      <span className={s.num} aria-label={`Otázka ${i + 2} z ${ANKETA.questions.length}`}>{i + 2}/{ANKETA.questions.length}</span>
                       <div>
                         <h2 className={s.qTitle}>{q.title}</h2>
                         {q.help && <p className={s.help}>{q.help}</p>}

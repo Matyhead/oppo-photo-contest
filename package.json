@@ -6,6 +6,7 @@
     "dev": "node scripts/image-manifest.mjs && next dev",
     "build": "node scripts/image-manifest.mjs && next build",
     "start": "next start",
+    "test:survey": "node --test tests/survey-ranking.test.cjs",
     "typecheck": "tsc --noEmit",
     "images": "node scripts/image-manifest.mjs"
   },

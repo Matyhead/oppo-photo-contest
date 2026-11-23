@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getUser, isAdminEmail, isPhotowalkAdminEmail, isSurveyAdminEmail } from '@/lib/auth';
-import { formatAnswer, labelOf } from '@/lib/survey';
+import { formatResponseAnswer, labelOf, type Answers } from '@/lib/survey';
 import { listResponses, sourceLabel, surveyByVersion } from '@/lib/survey-data';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { PHOTOWALK } from '@/lib/config';
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
           });
         }
       } else {
-        cols.push({ head: q.short, get: (a) => formatAnswer(q, a[q.id] as never) });
+        cols.push({ head: q.short, get: (a) => formatResponseAnswer(q, a as Answers) });
       }
     }
     const responses = ((await listResponses(def.slug)) ?? []).slice().reverse();
