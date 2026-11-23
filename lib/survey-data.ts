@@ -67,7 +67,9 @@ export function countOptions(rows: SurveyResponse[], q: Question): { counts: Cou
   let answered = 0;
   for (const r of rows) {
     const v = r.answers[q.id];
-    const picked = typeof v === 'string' ? [v] : Array.isArray(v) ? v : [];
+    const values = typeof v === 'string' ? [v] : Array.isArray(v) ? v : [];
+    // Ranking summaries count the first choice; full order stays in the table/export.
+    const picked = q.kind === 'multi' && q.ranked ? values.slice(0, 1) : values;
     if (picked.length) answered++;
     for (const p of picked) {
       const c = counts.find((x) => x.value === p);

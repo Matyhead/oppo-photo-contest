@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { formatAnswer, labelOf, type Question, type SurveyDef } from '@/lib/survey';
+import { formatResponseAnswer, formatAnswer, labelOf, type Question, type SurveyDef } from '@/lib/survey';
 import { ANKETA } from '@/lib/survey-anketa';
 import { MAIN_SURVEY } from '@/lib/survey';
 import {
@@ -35,7 +35,7 @@ function tableColumns(questions: Question[]) {
             return cell ? labelOf(q, cell) : '';
           },
         }))
-      : [{ key: q.id, head: q.short, wrap: q.kind === 'multi' || (q.kind === 'single' && q.style === 'list'), get: (r: SurveyResponse) => formatAnswer(q, r.answers[q.id]) }],
+      : [{ key: q.id, head: q.short, wrap: q.kind === 'multi' || (q.kind === 'single' && q.style === 'list'), get: (r: SurveyResponse) => formatResponseAnswer(q, r.answers) }],
   );
 }
 
@@ -75,7 +75,7 @@ function QuestionCard({ q, rows }: { q: Question; rows: SurveyResponse[] }) {
     <div className={s.qCard}>
       <h3 className={s.qTitle}>{q.title}</h3>
       <p className={s.qMeta}>
-        {answered} odpovědí{multi ? `, mohli vybrat víc${q.max ? ` (nejvýš ${q.max})` : ''}: procenta z respondentů, nesčítají se do 100 %` : ''}
+        {answered} odpovědí{multi && q.ranked ? ', podíl odpovědí na 1. místě; celé pořadí je v tabulce a CSV' : multi ? `, mohli vybrat víc${q.max ? ` (nejvýš ${q.max})` : ''}: procenta z respondentů, nesčítají se do 100 %` : ''}
       </p>
       <BarList counts={counts} total={answered} colors={colors} />
     </div>
